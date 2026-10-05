@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Rhaghoorian.App.Views.ModificationPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:comp="clr-namespace:Rhaghoorian.App.Components"
+             Title="Modificação">
+    <Grid RowDefinitions="Auto,*" Padding="28,20" RowSpacing="14">
+
+        <FlexLayout Wrap="Wrap" AlignItems="Center">
+            <Button Text="Dicionário" Command="{Binding ShowDictionaryCommand}" Margin="0,0,10,8">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding ShowDictionary}" Value="False">
+                        <Setter Property="BackgroundColor" Value="Transparent" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+                        <Setter Property="BorderWidth" Value="1" />
+                        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource LightBorder}, Dark={StaticResource DarkBorder}}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+            <Button Text="Importação" Command="{Binding ShowImportCommand}" Margin="0,0,16,8">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding ShowImport}" Value="False">
+                        <Setter Property="BackgroundColor" Value="Transparent" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+                        <Setter Property="BorderWidth" Value="1" />
+                        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource LightBorder}, Dark={StaticResource DarkBorder}}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+            <Label Margin="0,0,0,8" VerticalOptions="Center" StyleClass="Muted"
+                   Text="Modo consulta: entre com sua conta para criar, editar ou excluir palavras.">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding IsAuthenticated}" Value="True">
+                        <Setter Property="Text" Value="Você pode criar, editar e excluir palavras do dicionário compartilhado." />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
+        </FlexLayout>
+
+        <!-- Cada seção fica num Grid para que IsVisible use o BindingContext da página; a seção recebe o seu próprio ViewModel. -->
+        <Grid Grid.Row="1" IsVisible="{Binding ShowDictionary}">
+            <comp:DictionaryView BindingContext="{Binding Dictionary}" />
+        </Grid>
+        <Grid Grid.Row="1" IsVisible="{Binding ShowImport}">
+            <comp:ImportView BindingContext="{Binding Import}" />
+        </Grid>
+    </Grid>
+</ContentPage>

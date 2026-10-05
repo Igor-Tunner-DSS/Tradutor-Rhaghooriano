@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Todas as cores dependem do tema (claro/escuro) via AppThemeBinding; o tema é alternado em Application.UserAppTheme. -->
+    <Style TargetType="Page" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource LightBg}, Dark={StaticResource DarkBg}}" />
+    </Style>
+
+    <Style TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource LightSurface}, Dark={StaticResource DarkSurface}}" />
+        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource LightText}, Dark={StaticResource DarkText}}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light={StaticResource LightSurface}, Dark={StaticResource DarkSurface}}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light={StaticResource LightMuted}, Dark={StaticResource DarkMuted}}" />
+    </Style>
+
+    <Style TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource LightText}, Dark={StaticResource DarkText}}" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style TargetType="Label" Class="Muted">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource LightMuted}, Dark={StaticResource DarkMuted}}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style TargetType="Label" Class="Heading">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+    <Style TargetType="Label" Class="Brand">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+    </Style>
+    <Style TargetType="Label" Class="Accent">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+    <Style TargetType="Label" Class="Error">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ErrorRed}, Dark={StaticResource ErrorRedLight}}" />
+    </Style>
+    <Style TargetType="Label" Class="Success">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Emerald}, Dark={StaticResource EmeraldLight}}" />
+    </Style>
+
+    <Style TargetType="Entry">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource LightText}, Dark={StaticResource DarkText}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource LightMuted}, Dark={StaticResource DarkMuted}}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style TargetType="Editor">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource LightText}, Dark={StaticResource DarkText}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource LightMuted}, Dark={StaticResource DarkMuted}}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontSize" Value="15" />
+    </Style>
+    <Style TargetType="Picker">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource LightText}, Dark={StaticResource DarkText}}" />
+        <Setter Property="TitleColor" Value="{AppThemeBinding Light={StaticResource LightMuted}, Dark={StaticResource DarkMuted}}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style TargetType="Switch">
+        <Setter Property="OnColor" Value="{StaticResource Emerald}" />
+    </Style>
+    <Style TargetType="ActivityIndicator">
+        <Setter Property="Color" Value="{StaticResource Emerald}" />
+    </Style>
+
+    <!-- Botão padrão: roxo -->
+    <Style TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{StaticResource Purple}" />
+        <Setter Property="TextColor" Value="{StaticResource White}" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
+    </Style>
+    <Style TargetType="Button" Class="Emerald">
+        <Setter Property="BackgroundColor" Value="{StaticResource Emerald}" />
+    </Style>
+    <Style TargetType="Button" Class="Ghost">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource LightBorder}, Dark={StaticResource DarkBorder}}" />
+    </Style>
+    <Style TargetType="Button" Class="Danger">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ErrorRed}, Dark={StaticResource ErrorRedLight}}" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource LightBorder}, Dark={StaticResource DarkBorder}}" />
+    </Style>
+    <Style TargetType="Button" Class="Chip">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PurpleSoft}, Dark={StaticResource PurpleDeep}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Purple}, Dark={StaticResource PurpleLight}}" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="MinimumHeightRequest" Value="32" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Margin" Value="0,0,8,8" />
+    </Style>
+
+    <!-- Cartão -->
+    <Style TargetType="Border" Class="Card">
+        <Setter Property="Background" Value="{AppThemeBinding Light={StaticResource LightSurface}, Dark={StaticResource DarkSurface}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource LightBorder}, Dark={StaticResource DarkBorder}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style TargetType="Border" Class="Input">
+        <Setter Property="Background" Value="{AppThemeBinding Light={StaticResource LightBg}, Dark={StaticResource DarkBg}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource LightBorder}, Dark={StaticResource DarkBorder}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+        <Setter Property="Padding" Value="10,2" />
+    </Style>
+    <Style TargetType="Border" Class="Tag">
+        <Setter Property="Background" Value="{AppThemeBinding Light={StaticResource EmeraldSoft}, Dark={StaticResource DarkBorder}}" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+        <Setter Property="Padding" Value="8,2" />
+    </Style>
+</ResourceDictionary>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rhaghoorian.Core\Rhaghoorian.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Os arquivos oficiais fornecidos (dicionário e regras verbais) servem de dados de teste. -->
+    <None Include="..\..\data\dicionario_rhagho_oriano_atual.txt" Link="TestData\dicionario_rhagho_oriano_atual.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\regra_flexao_verbal_rhagho_oriano.txt" Link="TestData\regra_flexao_verbal_rhagho_oriano.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

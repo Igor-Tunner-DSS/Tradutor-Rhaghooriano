@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Rhaghoorian.App.Views.WordEditPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             Title="{Binding Title}">
+    <ScrollView>
+        <VerticalStackLayout Padding="28,20" Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
+
+            <Label Text="{Binding Title}" StyleClass="Heading" />
+
+            <Label StyleClass="Muted" LineBreakMode="WordWrap" Text="Para salvar é preciso estar autenticado; ao tocar em Salvar sem login, você será convidado a entrar.">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding IsAuthenticated}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
+
+            <!-- Dados obrigatórios -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Dados obrigatórios" StyleClass="Accent" />
+                    <Label Text="Grafia em Rhagho'oriano" StyleClass="Muted" />
+                    <Border StyleClass="Input"><Entry Text="{Binding Rhagho}" Placeholder="ex.: mor'hk" /></Border>
+                    <Label Text="Significado em português" StyleClass="Muted" />
+                    <Border StyleClass="Input"><Entry Text="{Binding Portuguese}" Placeholder="ex.: amar (para verbos, o infinitivo)" /></Border>
+                    <Label Text="Classe gramatical" StyleClass="Muted" />
+                    <Border StyleClass="Input"><Picker Title="Escolha a classe" ItemsSource="{Binding PartsOfSpeech}" SelectedItem="{Binding PartOfSpeech}" /></Border>
+                    <Border StyleClass="Input"><Entry Text="{Binding NewPartOfSpeech}" Placeholder="…ou digite uma classe nova (opcional)" /></Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Verbos: as quatro flexões são geradas pelas regras oficiais; a IA só confere -->
+            <Border StyleClass="Card" IsVisible="{Binding IsVerb}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Flexões geradas automaticamente" StyleClass="Accent" />
+                    <Label Text="presente = base · passado = base'ta · futuro = base'vil · imperativo = base'nux" StyleClass="Muted" />
+                    <Label Text="{Binding VerbPreviewText}" IsVisible="{Binding HasVerbPreview}" StyleClass="Success" />
+                    <Button Text="Conferir com a IA (opcional)" Command="{Binding CheckConjugationCommand}" StyleClass="Ghost" HorizontalOptions="Start" />
+                    <Label Text="{Binding ConjugationCheckText}" IsVisible="{Binding HasConjugationCheck}" StyleClass="Muted" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Opcionais -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Informações opcionais" StyleClass="Accent" />
+                    <Label Text="Etimologia" StyleClass="Muted" />
+                    <Border StyleClass="Input"><Editor Text="{Binding Etymology}" HeightRequest="70" AutoSize="Disabled" /></Border>
+                    <Label Text="Exemplo de uso" StyleClass="Muted" />
+                    <Border StyleClass="Input"><Editor Text="{Binding Example}" HeightRequest="70" AutoSize="Disabled" /></Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Formas alternativas -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Formas alternativas (participam da pesquisa)" StyleClass="Accent" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding AlternativeForms}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Border StyleClass="Input"><Entry Text="{Binding Text}" Placeholder="forma alternativa" /></Border>
+                                    <Button Grid.Column="1" Text="Remover" Command="{Binding RemoveCommand}" StyleClass="Danger" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Button Text="+ Adicionar forma alternativa" Command="{Binding AddAlternativeCommand}" StyleClass="Ghost" HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Abreviações -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Abreviações" StyleClass="Accent" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Abbreviations}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Border StyleClass="Input"><Entry Text="{Binding Text}" Placeholder="abreviação" /></Border>
+                                    <Button Grid.Column="1" Text="Remover" Command="{Binding RemoveCommand}" StyleClass="Danger" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Button Text="+ Adicionar abreviação" Command="{Binding AddAbbreviationCommand}" StyleClass="Ghost" HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Sinônimos: manual ou sugeridos pela IA; só são gravados ao salvar (usuário autenticado) -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Sinônimos" StyleClass="Accent" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Synonyms}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Border StyleClass="Input"><Entry Text="{Binding Text}" Placeholder="sinônimo em português" /></Border>
+                                    <Button Grid.Column="1" Text="Remover" Command="{Binding RemoveCommand}" StyleClass="Danger" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                        <Button Text="+ Adicionar sinônimo" Command="{Binding AddSynonymCommand}" StyleClass="Ghost" Margin="0,0,10,8" />
+                        <Button Text="Sugerir sinônimos com IA" Command="{Binding SuggestSynonymsCommand}" StyleClass="Ghost" Margin="0,0,10,8" />
+                    </FlexLayout>
+                    <Label Text="{Binding AiMessage}" IsVisible="{Binding HasAiMessage}" StyleClass="Muted" LineBreakMode="WordWrap" />
+                    <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding AiSuggestions}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Button Text="{Binding Text, StringFormat='+ {0}'}" Command="{Binding AcceptCommand}" StyleClass="Chip" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Rodapé -->
+            <FlexLayout Wrap="Wrap" AlignItems="Center">
+                <Button Text="Salvar" Command="{Binding SaveCommand}" Margin="0,0,10,10" MinimumWidthRequest="140" />
+                <Button Text="Cancelar" Command="{Binding CancelCommand}" StyleClass="Ghost" Margin="0,0,10,10" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" WidthRequest="22" HeightRequest="22" />
+            </FlexLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

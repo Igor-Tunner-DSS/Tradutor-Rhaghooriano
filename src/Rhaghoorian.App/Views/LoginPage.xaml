@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Rhaghoorian.App.Views.LoginPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             Title="Entrar">
+    <Grid Padding="28" VerticalOptions="Center">
+        <Border StyleClass="Card" MaximumWidthRequest="440" HorizontalOptions="Center" Padding="24">
+            <VerticalStackLayout Spacing="14">
+                <Label Text="Entrar" StyleClass="Heading" />
+                <Label Text="Acesso para quem administra o dicionário. As contas são criadas no Firebase; não há cadastro neste aplicativo."
+                       StyleClass="Muted" LineBreakMode="WordWrap" />
+
+                <Border StyleClass="Input">
+                    <Entry Text="{Binding Email}" Placeholder="E-mail" Keyboard="Email" ReturnType="Next" />
+                </Border>
+                <Border StyleClass="Input">
+                    <Entry Text="{Binding Password}" Placeholder="Senha" IsPassword="True"
+                           ReturnType="Done" ReturnCommand="{Binding SignInCommand}" />
+                </Border>
+
+                <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" StyleClass="Error" />
+
+                <Button Text="Entrar" Command="{Binding SignInCommand}" />
+                <Button Text="Continuar como visitante" Command="{Binding CancelCommand}" StyleClass="Ghost" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>

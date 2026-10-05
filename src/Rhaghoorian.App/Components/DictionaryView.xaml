@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView x:Class="Rhaghoorian.App.Components.DictionaryView"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12">
+
+        <Border StyleClass="Input">
+            <Entry Text="{Binding SearchText}" Placeholder="Pesquisar por português, Rhagho'oriano ou forma alternativa (acentos são ignorados)…" />
+        </Border>
+
+        <FlexLayout Grid.Row="1" Wrap="Wrap" AlignItems="Center">
+            <Border StyleClass="Input" WidthRequest="210" Margin="0,0,10,8">
+                <Picker Title="Classe gramatical" ItemsSource="{Binding Classes}" SelectedItem="{Binding SelectedClass}" />
+            </Border>
+            <Border StyleClass="Input" WidthRequest="260" Margin="0,0,10,8">
+                <Picker Title="Ordenar por" ItemsSource="{Binding SortOptions}" ItemDisplayBinding="{Binding Label}" SelectedItem="{Binding SelectedSort}" />
+            </Border>
+            <HorizontalStackLayout Spacing="6" Margin="0,0,16,8">
+                <Switch IsToggled="{Binding Descending}" VerticalOptions="Center" />
+                <Label Text="Ordem decrescente" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+            <Button Text="+ Nova palavra" Command="{Binding NewWordCommand}" IsVisible="{Binding IsAuthenticated}" StyleClass="Emerald" Margin="0,0,10,8" />
+            <Label Text="{Binding CountText}" StyleClass="Muted" VerticalOptions="Center" Margin="0,0,10,8" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" WidthRequest="22" HeightRequest="22" Margin="0,0,10,8" />
+        </FlexLayout>
+
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Items}" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <Label Text="Nenhum registro encontrado." StyleClass="Muted" HorizontalOptions="Center" Margin="0,40" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border StyleClass="Card" Padding="14,10">
+                        <VerticalStackLayout Spacing="8">
+                            <!-- Cabeçalho: toque para expandir -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="2">
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Text="{Binding Rhagho}" FontSize="20" StyleClass="Accent" VerticalOptions="Center" />
+                                        <Border StyleClass="Tag" VerticalOptions="Center">
+                                            <Label Text="{Binding PartOfSpeech}" FontSize="11" StyleClass="Success" />
+                                        </Border>
+                                    </HorizontalStackLayout>
+                                    <Label Text="{Binding Portuguese}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="detalhes ▾" StyleClass="Muted" VerticalOptions="Center" />
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                </Grid.GestureRecognizers>
+                            </Grid>
+
+                            <!-- Detalhes: exemplo, etimologia, sinônimos, formas alternativas, informações verbais -->
+                            <VerticalStackLayout IsVisible="{Binding IsExpanded}" Spacing="6">
+                                <Label Text="{Binding Example, StringFormat='Exemplo: {0}'}" IsVisible="{Binding HasExample}" />
+                                <Label Text="{Binding Etymology, StringFormat='Etimologia: {0}'}" IsVisible="{Binding HasEtymology}" />
+                                <Label Text="{Binding SynonymsText, StringFormat='Sinônimos: {0}'}" IsVisible="{Binding HasSynonyms}" />
+                                <Label Text="{Binding AlternativeFormsText, StringFormat='Formas alternativas: {0}'}" IsVisible="{Binding HasAlternativeForms}" />
+                                <Label Text="{Binding AbbreviationsText, StringFormat='Abreviações: {0}'}" IsVisible="{Binding HasAbbreviations}" />
+                                <Label Text="{Binding VerbText}" IsVisible="{Binding HasVerbInfo}" StyleClass="Success" />
+                                <HorizontalStackLayout Spacing="8" IsVisible="{Binding CanModify}">
+                                    <Button Text="Editar" Command="{Binding EditCommand}" StyleClass="Ghost" />
+                                    <Button Text="Excluir" Command="{Binding DeleteCommand}" StyleClass="Danger" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentView>

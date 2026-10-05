@@ -1,0 +1,33 @@
+Regra de flexão verbal rhagho'oriano
+
+A formação do verbo ocorre da seguinte forma. O rhagho'oriano trabalha apenas com quatro flexões verbais: presente, passado, futuro e imperativo. O verbo não se flexiona ao tratar de modo, número ou pessoa. O verbo tem a sua forma base, que seria o infinitivo do português:
+"amar" : "mor'hk"
+
+Essa mesma escrita é usada para todas as formas do português:
+    "amo" : "mor'hk",
+    "amas" : "mor'hk",
+    "ama" : "mor'hk",
+    "amamos" : "mor'hk",
+    "amais" : "mor'hk",
+    "amam" : "mor'hk"
+
+Para mudar para o passado, adiciona o 'ta ao final da forma base do verbo:
+    "amei" : "mor'hk'ta",
+    "amaste" : "mor'hk'ta",
+    "amou" : "mor'hk'ta",
+    "amamos" : "mor'hk'ta",
+    "amastes" : "mor'hk'ta",
+    "amaram" : "mor'hk'ta",
+
+Para mudar para o futuro, adiciona o 'vil ao final da forma base do verbo:
+    "amarei" : "mor'hk'vil",
+    "amaras" : "mor'hk'vil",
+    "amara" : "mor'hk'vil",
+    "amaremos" : "mor'hk'vil",
+    "amareis" : "mor'hk'vil",
+    "amarao" : "mor'hk'vil"
+
+Para mudar para o imperativo, adiciona o 'nux ao final da forma base do verbo:
+    "ame" : "mor'hk'nux",
+    "ameis" : "mor'hk'nux",
+    "amem" : "mor'hk'nux",

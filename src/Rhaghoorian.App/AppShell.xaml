@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell x:Class="Rhaghoorian.App.AppShell"
+       xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:Rhaghoorian.App.Views"
+       Shell.FlyoutBehavior="Disabled"
+       Title="Rhagho'oriano">
+
+    <!-- Barra de título: marca, estado da sincronização, tema, sincronizar e sessão. BindingContext = ShellViewModel. -->
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10" Padding="8,0">
+            <HorizontalStackLayout Spacing="14" VerticalOptions="Center">
+                <Label Text="Rhagho'oriano" StyleClass="Brand" VerticalOptions="Center" />
+                <Label Text="{Binding StatusText}" StyleClass="Muted" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+            <Label Grid.Column="1" Text="{Binding UserLabel}" StyleClass="Muted" VerticalOptions="Center" />
+            <Button Grid.Column="2" Text="Sincronizar" Command="{Binding SyncNowCommand}" StyleClass="Ghost" />
+            <Button Grid.Column="3" Text="{Binding ThemeButtonText}" Command="{Binding ToggleThemeCommand}" StyleClass="Ghost" />
+            <Button Grid.Column="4" Text="{Binding AuthButtonText}" Command="{Binding AuthCommand}" />
+        </Grid>
+    </Shell.TitleView>
+
+    <TabBar>
+        <ShellContent Title="Tradutor" Route="translator" ContentTemplate="{DataTemplate views:TranslatorPage}" />
+        <ShellContent Title="Modificação" Route="modification" ContentTemplate="{DataTemplate views:ModificationPage}" />
+    </TabBar>
+</Shell>

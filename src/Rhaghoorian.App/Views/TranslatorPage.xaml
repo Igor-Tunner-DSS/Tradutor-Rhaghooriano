@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Rhaghoorian.App.Views.TranslatorPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             Title="Tradutor">
+    <ScrollView>
+        <VerticalStackLayout Padding="28,20" Spacing="16" MaximumWidthRequest="1180">
+
+            <!-- Direção atual (claramente indicada) e botão para inverter -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="{Binding DirectionTitle}" StyleClass="Heading" />
+                    <Label Text="Tradução local e determinística. A IA só ajuda quando o dicionário não é suficiente." StyleClass="Muted" />
+                </VerticalStackLayout>
+                <Button Grid.Column="1" Text="⇄  Inverter direção" Command="{Binding SwapDirectionCommand}"
+                        StyleClass="Ghost" VerticalOptions="Center" />
+            </Grid>
+
+            <!-- Entrada e resultado -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                <Border StyleClass="Card">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding SourceLanguage}" StyleClass="Muted" />
+                        <Editor Text="{Binding InputText}" Placeholder="Digite ou cole o texto aqui…"
+                                HeightRequest="220" AutoSize="Disabled" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="1" StyleClass="Card">
+                    <VerticalStackLayout Spacing="8">
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Text="{Binding TargetLanguage}" StyleClass="Muted" VerticalOptions="Center" />
+                            <Border StyleClass="Tag" IsVisible="{Binding UsedAi}">
+                                <Label Text="apoio da IA" FontSize="11" StyleClass="Success" />
+                            </Border>
+                        </HorizontalStackLayout>
+                        <Editor Text="{Binding OutputText, Mode=OneWay}" IsReadOnly="True" HeightRequest="220" AutoSize="Disabled" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- Ações -->
+            <FlexLayout Wrap="Wrap" AlignItems="Center">
+                <Button Text="Traduzir" Command="{Binding TranslateCommand}" Margin="0,0,10,10" MinimumWidthRequest="130" />
+                <Button Text="Limpar" Command="{Binding ClearCommand}" StyleClass="Ghost" Margin="0,0,10,10" />
+                <Button Text="Copiar resultado" Command="{Binding CopyCommand}" StyleClass="Emerald" Margin="0,0,10,10" />
+                <Button Text="Histórico" Command="{Binding OpenHistoryCommand}" StyleClass="Ghost" Margin="0,0,10,10" />
+                <Button Text="Refinar com IA" Command="{Binding RefineWithAiCommand}" IsVisible="{Binding CanRefineWithAi}"
+                        StyleClass="Ghost" Margin="0,0,10,10" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" WidthRequest="24" HeightRequest="24" Margin="0,0,10,10" />
+            </FlexLayout>
+
+            <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" StyleClass="Accent" />
+
+            <!-- Leituras alternativas / ambiguidades -->
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Notes}" IsVisible="{Binding HasNotes}" Spacing="4">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <Label Text="{Binding .}" StyleClass="Muted" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <!-- Palavras inexistentes: nada é inventado; sugestões clicáveis + "Adicionar ao dicionário" -->
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding UnknownWords}" IsVisible="{Binding HasUnknownWords}" Spacing="10">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <Border StyleClass="Card">
+                            <VerticalStackLayout Spacing="8">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="Palavra não encontrada:" StyleClass="Muted" VerticalOptions="Center" />
+                                    <Label Text="{Binding Word}" StyleClass="Accent" FontSize="16" VerticalOptions="Center">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding AddCommand}" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </HorizontalStackLayout>
+                                <Label Text="Palavras semelhantes (toque para usar):" StyleClass="Muted" IsVisible="{Binding HasSuggestions}" />
+                                <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Suggestions}" IsVisible="{Binding HasSuggestions}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Text="{Binding Display}" Command="{Binding ApplyCommand}" StyleClass="Chip" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                                <Button Text="Adicionar ao dicionário" Command="{Binding AddCommand}" StyleClass="Emerald" HorizontalOptions="Start" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

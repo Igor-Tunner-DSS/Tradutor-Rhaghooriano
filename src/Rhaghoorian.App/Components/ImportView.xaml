@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView x:Class="Rhaghoorian.App.Components.ImportView"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="12">
+
+        <VerticalStackLayout Spacing="4">
+            <Label Text="Importação do dicionário" StyleClass="Heading" />
+            <Label StyleClass="Muted" LineBreakMode="WordWrap"
+                   Text="Lê o arquivo, gera o relatório de validação (duplicatas, chaves repetidas, aspas e apóstrofos diferentes, formas verbais incompletas…) e publica no Firebase somente o que ainda não existe. Nada é descartado nem corrigido silenciosamente." />
+        </VerticalStackLayout>
+
+        <FlexLayout Grid.Row="1" Wrap="Wrap" AlignItems="Center">
+            <Button Text="Analisar dicionário incluído" Command="{Binding AnalyzeBundledCommand}" Margin="0,0,10,8" />
+            <Button Text="Escolher arquivo…" Command="{Binding PickFileCommand}" StyleClass="Ghost" Margin="0,0,10,8" />
+            <Button Text="Publicar no Firebase" Command="{Binding PublishCommand}" IsVisible="{Binding HasReport}" StyleClass="Emerald" Margin="0,0,10,8" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" WidthRequest="22" HeightRequest="22" Margin="0,0,10,8" />
+        </FlexLayout>
+
+        <Border Grid.Row="2" StyleClass="Card">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="{Binding Summary}" LineBreakMode="WordWrap" />
+                <Border StyleClass="Input" WidthRequest="220" HorizontalOptions="Start">
+                    <Picker Title="Filtrar problemas" ItemsSource="{Binding SeverityOptions}" SelectedItem="{Binding SeverityFilter}" />
+                </Border>
+            </VerticalStackLayout>
+        </Border>
+
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Issues}" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <Label Text="Nenhum problema para exibir." StyleClass="Muted" HorizontalOptions="Center" Margin="0,30" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border StyleClass="Card" Padding="12,8">
+                        <VerticalStackLayout Spacing="2">
+                            <HorizontalStackLayout Spacing="10">
+                                <Label Text="{Binding Severity}" StyleClass="Accent" FontSize="12" />
+                                <Label Text="{Binding Code}" FontSize="12" />
+                                <Label Text="{Binding Where}" StyleClass="Muted" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding Message}" FontSize="13" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentView>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Destaques: roxo e verde esmeralda -->
+    <Color x:Key="Purple">#6D28D9</Color>
+    <Color x:Key="PurpleLight">#A78BFA</Color>
+    <Color x:Key="PurpleSoft">#EDE9FE</Color>
+    <Color x:Key="PurpleDeep">#2E1065</Color>
+    <Color x:Key="Emerald">#059669</Color>
+    <Color x:Key="EmeraldLight">#34D399</Color>
+    <Color x:Key="EmeraldSoft">#D1FAE5</Color>
+    <Color x:Key="ErrorRed">#DC2626</Color>
+    <Color x:Key="ErrorRedLight">#F87171</Color>
+    <Color x:Key="White">#FFFFFF</Color>
+
+    <!-- Tema claro -->
+    <Color x:Key="LightBg">#F7F6FB</Color>
+    <Color x:Key="LightSurface">#FFFFFF</Color>
+    <Color x:Key="LightText">#1E1B2E</Color>
+    <Color x:Key="LightMuted">#6B6880</Color>
+    <Color x:Key="LightBorder">#E4E1EE</Color>
+
+    <!-- Tema escuro -->
+    <Color x:Key="DarkBg">#0E0C16</Color>
+    <Color x:Key="DarkSurface">#1A1727</Color>
+    <Color x:Key="DarkText">#EEEBF8</Color>
+    <Color x:Key="DarkMuted">#9C98B3</Color>
+    <Color x:Key="DarkBorder">#2E2A42</Color>
+</ResourceDictionary>

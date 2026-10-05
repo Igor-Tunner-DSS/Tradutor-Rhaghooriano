@@ -1,0 +1,11 @@
+{
+  "name": "rhaghoorian-rules-tests",
+  "private": true,
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-rhagho \"node --test rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.0",
+    "firebase": "^11.0.0"
+  }
+}

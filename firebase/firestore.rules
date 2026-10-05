@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// Segurança no servidor: o app MAUI nunca é a barreira de autorização.
+// - Qualquer pessoa lê o dicionário (visitantes usam Tradutor/Dicionário).
+// - Somente usuários autenticados (todos administradores) criam, alteram e excluem.
+// - Contadores de limite da IA (rateLimits) são acessíveis apenas pelo backend (Admin SDK ignora estas regras).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function shortString(v, maxLen) {
+      return v is string && v.size() <= maxLen;
+    }
+
+    function nonEmptyString(v, maxLen) {
+      return v is string && v.size() > 0 && v.size() <= maxLen;
+    }
+
+    // Formato mínimo de um registro do dicionário.
+    function validWord(d) {
+      return nonEmptyString(d.rhagho, 200)
+        && nonEmptyString(d.portuguese, 400)
+        && nonEmptyString(d.partOfSpeech, 60)
+        && d.version is int
+        && d.sortOrder is int
+        && d.createdAt is timestamp
+        && d.updatedAt is timestamp
+        && d.alternativeForms is list && d.alternativeForms.size() <= 50
+        && d.synonyms is list && d.synonyms.size() <= 100
+        && d.abbreviations is list && d.abbreviations.size() <= 50
+        && (!('etymology' in d) || shortString(d.etymology, 2000))
+        && (!('example' in d) || shortString(d.example, 2000));
+    }
+
+    match /dictionary/{wordId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+        && validWord(request.resource.data)
+        && request.resource.data.get('createdBy', null) == request.auth.uid
+        && request.resource.data.get('updatedBy', null) == request.auth.uid;
+
+      allow update: if signedIn()
+        && validWord(request.resource.data)
+        && request.resource.data.get('updatedBy', null) == request.auth.uid
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null);
+
+      allow delete: if signedIn();
+    }
+
+    // Contador de revisão usado para sincronizar com uma única leitura.
+    match /meta/{docId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['revision'])
+        && request.resource.data.revision == 1;
+
+      allow update: if signedIn()
+        && request.resource.data.keys().hasOnly(['revision'])
+        && request.resource.data.revision == resource.data.revision + 1;
+
+      allow delete: if false;
+    }
+
+    match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
