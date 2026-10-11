@@ -52,6 +52,11 @@ public sealed class MauiClipboardService : IClipboardService
     public Task SetTextAsync(string text) => MainThread.InvokeOnMainThreadAsync(() => Clipboard.Default.SetTextAsync(text));
 }
 
+public sealed class MauiUrlLauncher : IUrlLauncher
+{
+    public Task OpenAsync(string url) => MainThread.InvokeOnMainThreadAsync(() => Launcher.Default.OpenAsync(new Uri(url)));
+}
+
 public sealed class MauiUiDispatcher : IUiDispatcher
 {
     public void Post(Action action)

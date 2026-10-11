@@ -6,7 +6,7 @@ namespace Rhaghoorian.Infrastructure.Networking;
 /// <summary>
 /// Configuração centralizada. Camadas (a última vence): appsettings.json → appsettings.{Ambiente}.json → appsettings.local.json
 /// (config/, fora do git) → appsettings.local.json no diretório de dados do usuário. NUNCA contém segredos:
-/// a chave do OpenRouter só existe no backend (Secret Manager do Firebase).
+/// a chave do OpenRouter é pessoal, digitada em "Configurações de IA" e guardada protegida (DPAPI) no computador de cada pessoa.
 /// </summary>
 public sealed class AppConfiguration
 {
@@ -44,6 +44,5 @@ public sealed class AppConfiguration
         Firebase.FirestoreBaseUrl ??= "http://127.0.0.1:8080";
         Firebase.AuthBaseUrl ??= "http://127.0.0.1:9099/identitytoolkit.googleapis.com";
         Firebase.TokenBaseUrl ??= "http://127.0.0.1:9099/securetoken.googleapis.com";
-        if (!Ai.IsConfigured) Ai.Endpoint = $"http://127.0.0.1:5001/{Firebase.ProjectId}/us-central1/ai";
     }
 }

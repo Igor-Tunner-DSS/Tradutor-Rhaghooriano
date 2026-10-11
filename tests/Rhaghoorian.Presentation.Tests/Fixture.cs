@@ -101,3 +101,35 @@ public sealed class Fx
     public DictionaryViewModel DictionaryVm() => new(Dictionary, Auth, Startup, Nav, Dialogs, Ui, Errors) { DebounceMilliseconds = 0 };
     public WordEditViewModel Edit() => new(Dictionary, AiAssistant, Auth, Nav, Dialogs, TestKit.Ling, Errors);
 }
+
+public sealed class FakeLauncher : IUrlLauncher
+{
+    public List<string> Opened { get; } = new();
+    public Task OpenAsync(string url) { Opened.Add(url); return Task.CompletedTask; }
+}
+
+/// <summary>Gerenciador de chave de mentira: aplica as mesmas regras de formato, com "OpenRouter" configurável.</summary>
+public sealed class FakeKeyManager : Rhaghoorian.Core.Ai.IAiKeyManager
+{
+    private readonly FakeKeyStore _store;
+    public FakeKeyManager(FakeKeyStore store) => _store = store;
+    public Exception? RemoteFailure { get; set; }
+    public bool Verified { get; set; } = true;
+    public bool? FreeTier { get; set; }
+
+    public async Task<Rhaghoorian.Core.Ai.AiKeyStatus> GetStatusAsync(CancellationToken ct = default)
+    {
+        var k = await _store.GetAsync(ct);
+        return k is null ? new(false, null) : new(true, Rhaghoorian.Core.Ai.AiKeyFormat.Mask(k));
+    }
+
+    public async Task<Rhaghoorian.Core.Ai.AiKeySaveResult> SaveAsync(string key, CancellationToken ct = default)
+    {
+        var k = Rhaghoorian.Core.Ai.AiKeyFormat.Normalize(key);
+        if (RemoteFailure is not null) throw RemoteFailure;
+        await _store.SetAsync(k, ct);
+        return new(Verified, FreeTier);
+    }
+
+    public Task RemoveAsync(CancellationToken ct = default) => _store.ClearAsync(ct);
+}

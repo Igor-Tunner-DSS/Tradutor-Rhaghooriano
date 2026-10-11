@@ -96,7 +96,9 @@ public class FirestoreStoreTests
         h.Responder = s => s.Url.Contains("pageToken=tok2")
             ? (HttpStatusCode.OK, $"{{\"documents\":[{Doc("c")}]}}")
             : (HttpStatusCode.OK, $"{{\"documents\":[{Doc("a")},{Doc("b")}],\"nextPageToken\":\"tok2\"}}");
-        var all = await store.ListAllAsync();
+        var changes = await store.ListChangesAsync(null);
+        var all = changes.Upserts;
+        Assert.True(changes.IsFull);
         Assert.Equal(new[] { "a", "b", "c" }, all.Select(e => e.Id).ToArray());
         Assert.Equal("ta", all[0].RemoteUpdateTime);
         Assert.Equal(2, h.Requests.Count);
@@ -117,6 +119,8 @@ public class FirestoreStoreTests
         var writes = body.RootElement.GetProperty("writes");
         Assert.Equal(2, writes.GetArrayLength());
         Assert.False(writes[0].GetProperty("currentDocument").GetProperty("exists").GetBoolean());
+        Assert.Equal("syncStamp", writes[0].GetProperty("updateTransforms")[0].GetProperty("fieldPath").GetString());
+        Assert.Equal("REQUEST_TIME", writes[0].GetProperty("updateTransforms")[0].GetProperty("setToServerValue").GetString());
         Assert.Equal("revision", writes[1].GetProperty("updateTransforms")[0].GetProperty("fieldPath").GetString());
         Assert.Equal("1", writes[1].GetProperty("updateTransforms")[0].GetProperty("increment").GetProperty("integerValue").GetString());
     }
@@ -136,6 +140,69 @@ public class FirestoreStoreTests
 
         e.RemoteUpdateTime = null;
         await Assert.ThrowsAsync<ConflictException>(() => store.UpdateAsync(e));
+    }
+
+    [Fact]
+    public async Task Delete_LeavesATombstoneInTheSameAtomicCommit()
+    {
+        var (store, h, _) = Build();
+        h.Responder = _ => (HttpStatusCode.OK, "{\"writeResults\":[{},{\"updateTime\":\"T\"},{}]}");
+        await store.DeleteAsync("w1", "T0");
+        using var body = JsonDocument.Parse(h.Requests.Single().Body);
+        var writes = body.RootElement.GetProperty("writes");
+        Assert.Equal(3, writes.GetArrayLength());                                   // exclusão + marcador + revisão
+        Assert.Contains("/dictionary/w1", writes[0].GetProperty("delete").GetString());
+        Assert.Equal("T0", writes[0].GetProperty("currentDocument").GetProperty("updateTime").GetString());
+        Assert.Contains("/deletions/w1", writes[1].GetProperty("update").GetProperty("name").GetString());
+        Assert.Equal("syncStamp", writes[1].GetProperty("updateTransforms")[0].GetProperty("fieldPath").GetString());
+    }
+
+    [Fact]
+    public async Task IncrementalSync_AsksOnlyForDocumentsStampedAfterTheCursor()
+    {
+        var (store, h, _) = Build();
+        string Doc(string id, string stamp) => $"{{\"document\":{{\"name\":\"projects/demo-proj/databases/(default)/documents/dictionary/{id}\",\"fields\":{{\"rhagho\":{{\"stringValue\":\"r\"}},\"portuguese\":{{\"stringValue\":\"p\"}},\"partOfSpeech\":{{\"stringValue\":\"Outros\"}},\"syncStamp\":{{\"timestampValue\":\"{stamp}\"}}}}}},\"readTime\":\"x\"}}";
+        h.Responder = s => s.Body.Contains("\"deletions\"")
+            ? (HttpStatusCode.OK, "[{\"document\":{\"name\":\"projects/demo-proj/databases/(default)/documents/deletions/gone\",\"fields\":{\"syncStamp\":{\"timestampValue\":\"2026-10-05T10:00:09.000000Z\"}}}}]")
+            : (HttpStatusCode.OK, $"[{Doc("a", "2026-10-05T10:00:05.250000Z")},{Doc("b", "2026-10-05T10:00:07.000000Z")}]");
+
+        var since = new DateTimeOffset(2026, 10, 5, 10, 0, 0, TimeSpan.Zero);
+        var changes = await store.ListChangesAsync(since);
+
+        Assert.False(changes.IsFull);
+        Assert.Equal(new[] { "a", "b" }, changes.Upserts.Select(e => e.Id).ToArray());
+        Assert.Equal(new[] { "gone" }, changes.DeletedIds.ToArray());
+        Assert.Equal(new DateTimeOffset(2026, 10, 5, 10, 0, 9, TimeSpan.Zero), changes.Cursor);   // maior carimbo visto
+        Assert.Equal(2, h.Requests.Count);                                                          // 1 consulta por coleção
+        Assert.All(h.Requests, r => Assert.Null(r.Authorization));                                  // leituras públicas
+        Assert.All(h.Requests, r => Assert.EndsWith(":runQuery", r.Url));
+        using var q = JsonDocument.Parse(h.Requests[0].Body);
+        var filter = q.RootElement.GetProperty("structuredQuery").GetProperty("where").GetProperty("fieldFilter");
+        Assert.Equal("syncStamp", filter.GetProperty("field").GetProperty("fieldPath").GetString());
+        Assert.Equal("GREATER_THAN", filter.GetProperty("op").GetString());
+        Assert.Equal("2026-10-05T10:00:00.000000Z", filter.GetProperty("value").GetProperty("timestampValue").GetString());
+    }
+
+    [Fact]
+    public async Task IncrementalSync_WithNothingNew_ReturnsAnEmptyDelta()
+    {
+        var (store, h, _) = Build();
+        h.Responder = _ => (HttpStatusCode.OK, "[{\"readTime\":\"2026-10-05T10:00:00Z\"}]");   // resposta de consulta vazia
+        var changes = await store.ListChangesAsync(DateTimeOffset.UtcNow);
+        Assert.Empty(changes.Upserts);
+        Assert.Empty(changes.DeletedIds);
+        Assert.Null(changes.Cursor);
+    }
+
+    [Fact]
+    public async Task ExhaustedDailyQuota_IsRecognizedAndExplained()
+    {
+        var (store, h, _) = Build();
+        h.Responder = _ => (HttpStatusCode.TooManyRequests, "{\"error\":{\"code\":429,\"status\":\"RESOURCE_EXHAUSTED\",\"message\":\"Quota exceeded.\"}}");
+        var ex = await Assert.ThrowsAsync<RemoteQuotaExceededException>(() => store.GetRevisionAsync());
+        Assert.Contains("cota diária", ex.Message);
+        h.Responder = _ => (HttpStatusCode.TooManyRequests, "{\"error\":{\"status\":\"UNAVAILABLE\"}}");
+        await Assert.ThrowsAsync<RemoteStoreException>(() => store.GetRevisionAsync());
     }
 
     [Fact]
@@ -291,97 +358,25 @@ public class FirebaseAuthTests
     }
 }
 
-public class BackendAiClientTests
-{
-    private static (BackendAiClient client, FakeHandler h) Build(bool signedIn = true)
-    {
-        var h = new FakeHandler();
-        return (new BackendAiClient(new HttpClient(h), new AiOptions { Endpoint = "https://example.test/ai/" }, new StubAuth { IsAuthenticated = signedIn }), h);
-    }
-
-    private static AiTranslationRequest Req(TranslationDirection d = TranslationDirection.RhaghoToPortuguese) =>
-        new("nuruh zzzx", d, new AiContext(new[] { new AiContextEntry("nuruh", "eu", "Pronome", null) }, new[] { "zzzx" }), "Eu zzzx");
-
-    [Fact]
-    public async Task Translate_PostsOnlyCompactContext_NoSecrets_AndCleansTheAnswer()
-    {
-        var (client, h) = Build();
-        h.Responder = _ => (HttpStatusCode.OK, "{\"text\":\"Tradução: Eu zzzx\"}");
-        Assert.Equal("Eu zzzx", await client.TranslateAsync(Req()));
-
-        var sent = h.Requests.Single();
-        Assert.Equal("https://example.test/ai/translate", sent.Url);
-        Assert.Equal("Bearer id-token-123", sent.Authorization);
-        using var body = JsonDocument.Parse(sent.Body);
-        Assert.Equal("rh-pt", body.RootElement.GetProperty("direction").GetString());
-        Assert.Equal(1, body.RootElement.GetProperty("context").GetProperty("entries").GetArrayLength());
-        Assert.DoesNotContain("openrouter", sent.Body.ToLowerInvariant());
-    }
-
-    [Fact]
-    public async Task Guests_CanTranslate_WithoutAnAuthorizationHeader()
-    {
-        var (client, h) = Build(signedIn: false);
-        h.Responder = _ => (HttpStatusCode.OK, "{\"text\":\"ok\"}");
-        await client.TranslateAsync(Req());
-        Assert.Null(h.Requests[0].Authorization);
-    }
-
-    [Fact]
-    public async Task RateLimitAndOutages_AreMappedToUserFriendlyErrors()
-    {
-        var (client, h) = Build();
-        h.Responder = _ => (HttpStatusCode.TooManyRequests, "{}");
-        await Assert.ThrowsAsync<AiRateLimitException>(() => client.TranslateAsync(Req()));
-        h.Responder = _ => (HttpStatusCode.BadGateway, "{}");
-        await Assert.ThrowsAsync<AiUnavailableException>(() => client.TranslateAsync(Req()));
-        h.Responder = _ => (HttpStatusCode.OK, "not json");
-        await Assert.ThrowsAsync<InvalidAiResponseException>(() => client.TranslateAsync(Req()));
-        h.Responder = _ => (HttpStatusCode.OK, "{\"text\":\"  \"}");
-        await Assert.ThrowsAsync<InvalidAiResponseException>(() => client.TranslateAsync(Req()));
-        h.Throw = new TaskCanceledException();
-        await Assert.ThrowsAsync<AiUnavailableException>(() => client.TranslateAsync(Req()));
-    }
-
-    [Fact]
-    public async Task Conjugate_AndSynonyms_ParseOnlyTheRequestedShape()
-    {
-        var (client, h) = Build();
-        h.Responder = _ => (HttpStatusCode.OK, "{\"text\":\"mor'hk\\nmor'hk'ta\\nmor'hk'vil\\nmor'hk'nux\"}");
-        Assert.Equal("mor'hk'vil", (await client.ConjugateAsync(new AiConjugationRequest("amar", "mor'hk"))).Future);
-        h.Responder = _ => (HttpStatusCode.OK, "{\"text\":\"lar\\nmoradia\"}");
-        Assert.Equal(2, (await client.SuggestSynonymsAsync(new AiSynonymRequest("casa", null, "Substantivo", Array.Empty<string>()))).Count);
-        h.Responder = _ => (HttpStatusCode.OK, "{\"text\":\"Aqui vai uma longa explicação sobre verbos\"}");
-        await Assert.ThrowsAsync<InvalidAiResponseException>(() => client.ConjugateAsync(new AiConjugationRequest("amar", "mor'hk")));
-    }
-
-    [Fact]
-    public async Task Unconfigured_FailsWithAClearMessage()
-    {
-        var client = new BackendAiClient(new HttpClient(new FakeHandler()), new AiOptions(), new StubAuth());
-        var ex = await Assert.ThrowsAsync<AiUnavailableException>(() => client.TranslateAsync(Req()));
-        Assert.Contains("configurado", ex.Message);
-    }
-}
-
 public class ConfigurationTests
 {
     [Fact]
     public void Layers_OverrideEachOther_AndPlaceholdersAreReportedAsUnconfigured()
     {
-        const string baseJson = "{ \"Firebase\": { \"ProjectId\": \"REPLACE_ME\", \"ApiKey\": \"REPLACE_ME\" }, \"Ai\": { \"Endpoint\": \"REPLACE_ME\" } }";
+        const string baseJson = "{ \"Firebase\": { \"ProjectId\": \"REPLACE_ME\", \"ApiKey\": \"REPLACE_ME\" }, \"Ai\": { \"DailyLimit\": 20 } }";
         var placeholders = AppConfiguration.Build(baseJson);
         Assert.False(placeholders.Firebase.IsConfigured);
-        Assert.False(placeholders.Ai.IsConfigured);
+        Assert.Equal("openrouter/free", placeholders.Ai.Model);
+        Assert.Equal(20, placeholders.Ai.DailyLimit);
 
         var real = AppConfiguration.Build(baseJson,
             "{ \"Environment\": \"Development\", \"Firebase\": { \"ProjectId\": \"meu-proj\" } }",
             null, "",
-            "{ \"Firebase\": { \"ApiKey\": \"AIza-xyz\" }, \"Ai\": { \"Endpoint\": \"https://x.test/ai\" } }");
+            "{ \"Firebase\": { \"ApiKey\": \"AIza-xyz\" }, \"Ai\": { \"DailyLimit\": 10 } }");
         Assert.Equal("Development", real.Environment);
         Assert.Equal("meu-proj", real.Firebase.ProjectId);
         Assert.True(real.Firebase.IsConfigured);
-        Assert.True(real.Ai.IsConfigured);
+        Assert.Equal(10, real.Ai.DailyLimit);
         Assert.Equal(20, real.Firebase.TimeoutSeconds);          // padrão preservado
     }
 
@@ -391,7 +386,6 @@ public class ConfigurationTests
         var c = AppConfiguration.Build("{ \"Firebase\": { \"ProjectId\": \"demo\", \"ApiKey\": \"k\", \"UseEmulators\": true, \"FirestoreBaseUrl\": \"http://localhost:9999\" } }");
         Assert.Equal("http://localhost:9999", c.Firebase.FirestoreBaseUrl);
         Assert.Equal("http://127.0.0.1:9099/identitytoolkit.googleapis.com", c.Firebase.AuthBaseUrl);
-        Assert.Equal("http://127.0.0.1:5001/demo/us-central1/ai", c.Ai.Endpoint);
     }
 
     [Fact]

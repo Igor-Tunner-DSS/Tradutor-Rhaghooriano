@@ -117,11 +117,14 @@ public sealed class SqliteDictionaryRepository : IDictionaryRepository
     public Task<SyncState> GetSyncStateAsync(CancellationToken ct = default) =>
         _db.RunAsync(async conn =>
         {
-            var rows = await QueryAsync(conn, "SELECT revision, last_sync_at FROM sync_state WHERE id = 1",
-                r => (Rev: r.IsDBNull(0) ? (long?)null : r.GetInt64(0), At: r.IsDBNull(1) ? (DateTimeOffset?)null : ParseDate(r.GetString(1))), ct);
+            var rows = await QueryAsync(conn, "SELECT revision, last_sync_at, cursor, last_full_sync_at FROM sync_state WHERE id = 1",
+                r => (Rev: r.IsDBNull(0) ? (long?)null : r.GetInt64(0),
+                      At: r.IsDBNull(1) ? (DateTimeOffset?)null : ParseDate(r.GetString(1)),
+                      Cur: r.IsDBNull(2) ? (DateTimeOffset?)null : ParseDate(r.GetString(2)),
+                      Full: r.IsDBNull(3) ? (DateTimeOffset?)null : ParseDate(r.GetString(3))), ct);
             var count = Convert.ToInt32(await ScalarAsync(conn, null, "SELECT COUNT(*) FROM words", ct) ?? 0);
             var row = rows.FirstOrDefault();
-            return new SyncState(row.Rev, row.At, count);
+            return new SyncState(row.Rev, row.At, count, row.Cur, row.Full);
         }, ct);
 
     public Task<int> GetMaxSortOrderAsync(CancellationToken ct = default) =>
@@ -157,8 +160,31 @@ public sealed class SqliteDictionaryRepository : IDictionaryRepository
             await using var tx = await conn.BeginTransactionAsync(ct);
             await ExecAsync(conn, tx, "DELETE FROM words", ct);   // cascata limpa tabelas filhas
             foreach (var e in entries) await WriteWordAsync(conn, tx, e, ct);
-            await ExecAsync(conn, tx, "UPDATE sync_state SET revision = @r, last_sync_at = @t WHERE id = 1", ct,
+            await ExecAsync(conn, tx, "UPDATE sync_state SET revision = @r, last_sync_at = @t, cursor = NULL, last_full_sync_at = NULL WHERE id = 1", ct,
                 ("@r", remoteRevision), ("@t", FormatDate(DateTimeOffset.UtcNow)));
+            await tx.CommitAsync(ct);
+            return true;
+        }, ct);
+
+    public Task ApplyChangesAsync(RemoteChanges changes, long remoteRevision, CancellationToken ct = default) =>
+        _db.RunAsync(async conn =>
+        {
+            await using var tx = await conn.BeginTransactionAsync(ct);
+            var now = FormatDate(DateTimeOffset.UtcNow);
+
+            if (changes.IsFull) await ExecAsync(conn, tx, "DELETE FROM words", ct);
+            foreach (var id in changes.DeletedIds)                                   // exclusões primeiro
+                await ExecAsync(conn, tx, "DELETE FROM words WHERE id = @id", ct, ("@id", id));
+            foreach (var e in changes.Upserts) await WriteWordAsync(conn, tx, e, ct);
+
+            // O cursor só avança (nunca recua), mesmo se uma resposta vier vazia.
+            await ExecAsync(conn, tx,
+                @"UPDATE sync_state SET revision = @r, last_sync_at = @t,
+                         cursor = CASE WHEN @c IS NOT NULL AND (cursor IS NULL OR @c > cursor) THEN @c ELSE cursor END,
+                         last_full_sync_at = CASE WHEN @full = 1 THEN @t ELSE last_full_sync_at END
+                  WHERE id = 1", ct,
+                ("@r", remoteRevision), ("@t", now),
+                ("@c", changes.Cursor is { } c ? FormatDate(c) : null), ("@full", changes.IsFull ? 1 : 0));
             await tx.CommitAsync(ct);
             return true;
         }, ct);

@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<HistoryViewModel>();
         services.AddTransient<LoginViewModel>();
         services.AddTransient<WordEditViewModel>();
+        services.AddTransient<AiSettingsViewModel>();
         return services;
     }
 }

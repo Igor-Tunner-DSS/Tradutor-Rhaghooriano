@@ -205,3 +205,71 @@ public class HistoryViaWorkflowTests
         Assert.Empty(await wf.GetHistoryAsync());
     }
 }
+
+public class PersonalKeyTests
+{
+    [Theory]
+    [InlineData("  sk-or-v1-0123456789abcdef0123456789abcdef  ")]
+    [InlineData("\"sk-or-v1-0123456789abcdef0123456789abcdef\"")]
+    public void ValidKeys_AreNormalized(string raw) =>
+        Assert.Equal("sk-or-v1-0123456789abcdef0123456789abcdef", AiKeyFormat.Normalize(raw));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("AIzaSyA-chave-do-firebase-0123456789")]
+    [InlineData("sk-or-v1-com espaço no meio 0123456789")]
+    [InlineData("sk-or-curta")]
+    public void InvalidKeys_AreRejectedWithAFriendlyMessage(string raw) =>
+        Assert.Throws<InvalidInputException>(() => AiKeyFormat.Normalize(raw));
+
+    [Fact]
+    public void Mask_NeverRevealsMoreThanTheLastFourCharacters()
+    {
+        var key = "sk-or-v1-0123456789abcdefSECRETXYZ9";
+        var masked = AiKeyFormat.Mask(key);
+        Assert.Equal("sk-or-…XYZ9", masked);
+        Assert.DoesNotContain("SECRET", masked);
+    }
+
+    [Fact]
+    public async Task DailyLimit_IsEnforcedLocally_PersistsAndResetsAtUtcMidnight()
+    {
+        var settings = new FakeSettings();
+        var clock = new DateTimeOffset(2026, 10, 5, 23, 59, 0, TimeSpan.Zero);
+        var limiter = new SettingsAiUsageLimiter(settings, 20, () => clock);
+        for (var i = 0; i < 20; i++) Assert.True(await limiter.TryAcquireAsync());
+        Assert.False(await limiter.TryAcquireAsync());
+        Assert.Equal(new AiUsage(20, 20), await limiter.GetUsageAsync());
+        Assert.Equal(0, (await limiter.GetUsageAsync()).Remaining);
+
+        var reopened = new SettingsAiUsageLimiter(settings, 20, () => clock);     // "fechar e reabrir"
+        Assert.False(await reopened.TryAcquireAsync());
+
+        clock = clock.AddMinutes(2);                                                // passou da meia-noite UTC
+        Assert.True(await reopened.TryAcquireAsync());
+        Assert.Equal(1, (await reopened.GetUsageAsync()).UsedToday);
+    }
+
+    [Fact]
+    public void Prompts_CarryTheOfficialRules_TreatUserTextAsData_AndRejectOversizedInput()
+    {
+        var req = new AiTranslationRequest("nuruh hoari'vil", TranslationDirection.RhaghoToPortuguese,
+            new AiContext(new[] { new AiContextEntry("nuruh", "eu", "Pronome", null) }, new[] { "zzz" }), "Eu irei");
+        var msgs = AiPrompts.Translation(req);
+        Assert.Equal("system", msgs[0].Role);
+        Assert.Contains("SOMENTE", msgs[0].Content);
+        Assert.Contains("'ta", msgs[0].Content);
+        Assert.Contains("'vil", msgs[0].Content);
+        Assert.Contains("'nux", msgs[0].Content);
+        Assert.Contains("NUNCA invente", msgs[0].Content);
+        Assert.Contains("- nuruh = eu (Pronome)", msgs[1].Content);
+        Assert.Contains("<<<\nnuruh hoari'vil\n>>>", msgs[1].Content);
+        Assert.Contains("zzz", msgs[1].Content);
+
+        var big = req with { Text = new string('a', AiPrompts.MaxTextChars + 1) };
+        Assert.Throws<InvalidInputException>(() => AiPrompts.Translation(big));
+        Assert.Contains("quatro linhas", AiPrompts.Conjugation(new AiConjugationRequest("amar", "mor'hk"))[0].Content);
+        Assert.Contains("no máximo 8", AiPrompts.Synonyms(new AiSynonymRequest("casa", null, null, new[] { "lar" }))[0].Content);
+    }
+}

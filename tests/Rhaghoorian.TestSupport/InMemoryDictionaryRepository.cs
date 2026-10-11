@@ -10,6 +10,8 @@ public sealed class InMemoryDictionaryRepository : IDictionaryRepository
     private readonly Dictionary<string, WordEntry> _entries = new();
     private long? _revision;
     private DateTimeOffset? _lastSync;
+    private DateTimeOffset? _cursor;
+    private DateTimeOffset? _lastFull;
     private readonly object _gate = new();
 
     private List<WordEntry> Snapshot() { lock (_gate) return _entries.Values.Select(e => e.Clone()).OrderBy(e => e.SortOrder).ToList(); }
@@ -82,9 +84,27 @@ public sealed class InMemoryDictionaryRepository : IDictionaryRepository
             foreach (var e in entries) _entries[e.Id] = e.Clone();
             _revision = remoteRevision;
             _lastSync = DateTimeOffset.UtcNow;
+            _cursor = null; _lastFull = null;
         }
         return Task.CompletedTask;
     }
+
+    public Task ApplyChangesAsync(RemoteChanges changes, long remoteRevision, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            if (changes.IsFull) { _entries.Clear(); _lastFull = DateTimeOffset.UtcNow; }
+            foreach (var id in changes.DeletedIds) _entries.Remove(id);              // exclusões primeiro
+            foreach (var e in changes.Upserts) _entries[e.Id] = e.Clone();
+            _revision = remoteRevision;
+            _lastSync = DateTimeOffset.UtcNow;
+            if (changes.Cursor is { } c && (_cursor is null || c > _cursor)) _cursor = c;
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Somente testes: recua a data da última carga completa.</summary>
+    public void SetLastFullSync(DateTimeOffset? at) { lock (_gate) _lastFull = at; }
 
     public Task<IReadOnlyList<string>> GetPartsOfSpeechAsync(CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<string>>(Snapshot().Select(e => e.PartOfSpeech).Where(p => p.Length > 0)
@@ -92,7 +112,7 @@ public sealed class InMemoryDictionaryRepository : IDictionaryRepository
 
     public Task<SyncState> GetSyncStateAsync(CancellationToken ct = default)
     {
-        lock (_gate) return Task.FromResult(new SyncState(_revision, _lastSync, _entries.Count));
+        lock (_gate) return Task.FromResult(new SyncState(_revision, _lastSync, _entries.Count, _cursor, _lastFull));
     }
 
     public Task<int> GetMaxSortOrderAsync(CancellationToken ct = default)

@@ -34,6 +34,7 @@ public static class MauiProgram
         services.AddSingleton<IClipboardService, MauiClipboardService>();
         services.AddSingleton<IUiDispatcher, MauiUiDispatcher>();
         services.AddSingleton<IFilePickerService, MauiFilePickerService>();
+        services.AddSingleton<IUrlLauncher, MauiUrlLauncher>();
         services.AddSingleton<IBundledDataService, EmbeddedDataService>();
         services.AddSingleton<IThemeService, ThemeService>();
 
@@ -44,6 +45,7 @@ public static class MauiProgram
         services.AddTransient<LoginPage>();
         services.AddTransient<ModificationPage>();
         services.AddTransient<WordEditPage>();
+        services.AddTransient<AiSettingsPage>();
 
         return builder.Build();
     }

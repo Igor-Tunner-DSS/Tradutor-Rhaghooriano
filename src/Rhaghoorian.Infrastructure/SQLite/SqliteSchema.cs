@@ -88,7 +88,9 @@ public static class SqliteSchema
         @"CREATE TABLE IF NOT EXISTS sync_state (
             id           INTEGER PRIMARY KEY CHECK (id = 1),
             revision     INTEGER NULL,
-            last_sync_at TEXT NULL
+            last_sync_at TEXT NULL,
+            cursor       TEXT NULL,
+            last_full_sync_at TEXT NULL
         );",
         "INSERT OR IGNORE INTO sync_state(id, revision, last_sync_at) VALUES (1, NULL, NULL);",
 

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text;
 using Rhaghoorian.Core.Abstractions;
+using Rhaghoorian.Core.Errors;
 using Rhaghoorian.Core.Models;
 using Rhaghoorian.Core.Services;
 using Rhaghoorian.Core.Text;
@@ -170,6 +171,11 @@ public sealed class TranslatorViewModel : ObservableObject
             StatusMessage = refined.Direction == TranslationDirection.PortugueseToRhagho
                 ? "Resposta da IA conferida: só contém palavras do dicionário."
                 : "Resposta da IA (apoio). Palavras sem registro continuam sinalizadas.";
+        }
+        catch (Exception ex) when (ex is AiKeyMissingException or AiKeyInvalidException)
+        {
+            IsBusy = false;
+            await AiKeyPrompt.TryHandleAsync(ex, _dialogs, _nav);   // oferece abrir as Configurações de IA
         }
         finally { IsBusy = false; }
     }

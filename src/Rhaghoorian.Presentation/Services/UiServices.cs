@@ -38,6 +38,12 @@ public interface IFilePickerService
     Task<string?> PickTextFileAsync(string title, CancellationToken ct = default);
 }
 
+public interface IUrlLauncher
+{
+    /// <summary>Abre um endereço no navegador padrão (ex.: página de chaves do OpenRouter).</summary>
+    Task OpenAsync(string url);
+}
+
 public interface IBundledDataService
 {
     /// <summary>Dicionário inicial incluído no aplicativo ("Dicionário rhagho'oriano atual").</summary>
@@ -69,6 +75,8 @@ public sealed class ErrorHandler : IErrorHandler
         var title = ex switch
         {
             NotAuthenticatedException or InvalidCredentialsException => "Acesso",
+            AiKeyMissingException or AiKeyInvalidException or AiRateLimitException or AiUnavailableException or InvalidAiResponseException => "IA",
+            RemoteQuotaExceededException => "Cota do Firebase",
             OfflineException or RemoteTimeoutException => "Conexão",
             ConflictException => "Conflito de edição",
             InvalidInputException => "Confira os dados",
@@ -90,10 +98,24 @@ public static class Routes
     public const string Login = "login";
     public const string History = "history";
     public const string WordEdit = "wordedit";
+    public const string AiSettings = "aisettings";
 }
 
 /// <summary>Garante que mudanças de estado vindas de threads de fundo (ex.: renovação de token) cheguem à UI na thread correta.</summary>
 public interface IUiDispatcher
 {
     void Post(Action action);
+}
+
+
+/// <summary>Quando a causa é a chave do OpenRouter (ausente ou recusada), oferece abrir as Configurações de IA em vez de só avisar.</summary>
+public static class AiKeyPrompt
+{
+    public static async Task<bool> TryHandleAsync(Exception ex, IDialogService dialogs, INavigationService nav)
+    {
+        if (ex is not (AiKeyMissingException or AiKeyInvalidException)) return false;
+        if (await dialogs.ConfirmAsync("Chave de IA", ex.Message + "\n\nAbrir as Configurações de IA agora?", "Abrir"))
+            await nav.GoToAsync(Routes.AiSettings);
+        return true;
+    }
 }

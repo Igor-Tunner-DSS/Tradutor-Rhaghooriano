@@ -33,7 +33,9 @@ public sealed class DictionaryQuery
     public int Skip { get; set; }
 }
 
-public sealed record SyncState(long? Revision, DateTimeOffset? LastSyncAt, int LocalCount);
+/// <param name="Cursor">Maior carimbo de servidor (syncStamp) já aplicado; ponto de partida da sincronização incremental.</param>
+/// <param name="LastFullSyncAt">Última carga completa; uma carga completa é refeita periodicamente como rede de segurança.</param>
+public sealed record SyncState(long? Revision, DateTimeOffset? LastSyncAt, int LocalCount, DateTimeOffset? Cursor = null, DateTimeOffset? LastFullSyncAt = null);
 
 public enum SyncOutcome { UpToDate, Updated, Offline, RemoteNotInitialized, Failed }
 

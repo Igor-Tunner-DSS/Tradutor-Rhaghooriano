@@ -6,6 +6,8 @@ public sealed class FirebaseOptions
     /// <summary>"Web API Key" do projeto Firebase. É um identificador público (não é segredo); a segurança vem das Security Rules.</summary>
     public string ApiKey { get; set; } = string.Empty;
     public string DictionaryCollection { get; set; } = "dictionary";
+    /// <summary>Marcadores de exclusão (um por palavra apagada) que permitem sincronizar exclusões sem reler tudo.</summary>
+    public string DeletionsCollection { get; set; } = "deletions";
     public string MetaCollection { get; set; } = "meta";
     public string MetaDocument { get; set; } = "dictionary";
     /// <summary>Permite apontar para o emulador local (ex.: http://127.0.0.1:8080). Vazio em produção.</summary>
@@ -21,10 +23,16 @@ public sealed class FirebaseOptions
         !string.IsNullOrWhiteSpace(ApiKey) && !ApiKey.StartsWith("REPLACE", StringComparison.OrdinalIgnoreCase);
 }
 
+/// <summary>
+/// IA: chamada DIRETA ao OpenRouter com a chave pessoal de cada usuário (não há backend: Cloud Functions exigem o plano Blaze).
+/// Nenhuma chave existe nestas opções nem em arquivos de configuração.
+/// </summary>
 public sealed class AiOptions
 {
-    /// <summary>URL base da função HTTPS (ex.: https://us-central1-SEU_PROJETO.cloudfunctions.net/ai). Nenhuma chave aqui.</summary>
-    public string Endpoint { get; set; } = string.Empty;
-    public int TimeoutSeconds { get; set; } = 60;
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(Endpoint) && !Endpoint.Contains("REPLACE", StringComparison.OrdinalIgnoreCase);
+    public string BaseUrl { get; set; } = "https://openrouter.ai/api/v1";
+    public string Model { get; set; } = "openrouter/free";
+    public int TimeoutSeconds { get; set; } = 45;
+    public int MaxRetries { get; set; } = 2;
+    /// <summary>Limite diário local de consultas (uso esperado ≈ 20).</summary>
+    public int DailyLimit { get; set; } = 20;
 }

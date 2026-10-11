@@ -313,3 +313,121 @@ public class SeederTests
         Assert.Equal(before, (await repo.GetSyncStateAsync()).LocalCount);
     }
 }
+
+public class IncrementalSyncTests
+{
+    private sealed class QuotaRemote : IRemoteDictionaryStore
+    {
+        public Task<long?> GetRevisionAsync(CancellationToken ct = default) => throw new RemoteQuotaExceededException();
+        public Task<RemoteChanges> ListChangesAsync(DateTimeOffset? since, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<WordEntry?> GetAsync(string id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<WordEntry> CreateAsync(WordEntry entry, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<WordEntry> UpdateAsync(WordEntry entry, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task DeleteAsync(string id, string? expectedUpdateTime, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<int> CreateMissingAsync(IReadOnlyCollection<WordEntry> entries, IProgress<int>? progress = null, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private static IEnumerable<WordEntry> Many(int n) =>
+        Enumerable.Range(0, n).Select(i => TestKit.Word($"palavra{i}", $"rh{i}", "Substantivo", i));
+
+    [Fact]
+    public async Task AfterTheFirstFullDownload_OnlyTheChangedDocumentsAreRead()
+    {
+        var h = new Harness();
+        h.Remote.Seed(Many(500));
+        await h.Sync.SyncAsync();                                   // carga completa: 500 leituras
+        Assert.Equal(1, h.Remote.FullListCalls);
+        var afterFull = h.Remote.DocumentsRead;
+
+        h.Remote.AdvanceClock(3600);
+        var one = (await h.Remote.GetAsync((await h.Local.SearchAsync(new DictionaryQuery { Take = 1 }))[0].Id))!;
+        one.Etymology = "alterada por outra pessoa";
+        await h.Remote.UpdateAsync(one);
+
+        var r = await h.Sync.SyncAsync();
+        Assert.Equal(SyncOutcome.Updated, r.Outcome);
+        Assert.Equal(1, h.Remote.IncrementalCalls);
+        Assert.Equal(1, h.Remote.FullListCalls);                    // não baixou tudo de novo
+        // 1 alterado + margem de 15 s do cursor (no simulador cada gravação ocupa 1 s) + 2 consultas; nunca os 500.
+        Assert.True(h.Remote.DocumentsRead - afterFull <= 25, $"leu {h.Remote.DocumentsRead - afterFull} documentos");
+        Assert.Equal("alterada por outra pessoa", (await h.Local.GetAsync(one.Id))!.Etymology);
+        Assert.Equal(500, r.Count);
+    }
+
+    [Fact]
+    public async Task RevisionUnchanged_CostsNoDocumentReadsAtAll()
+    {
+        var h = new Harness();
+        h.Remote.Seed(Many(50));
+        await h.Sync.SyncAsync();
+        var reads = h.Remote.DocumentsRead;
+        for (var i = 0; i < 5; i++) Assert.Equal(SyncOutcome.UpToDate, (await h.Sync.SyncAsync()).Outcome);
+        Assert.Equal(reads, h.Remote.DocumentsRead);
+    }
+
+    [Fact]
+    public async Task DeletionsAndRecreations_PropagateThroughTombstones()
+    {
+        var h = new Harness();
+        h.Remote.Seed(Many(5));
+        await h.Sync.SyncAsync();
+        var victim = (await h.Local.SearchAsync(new DictionaryQuery { Take = 1 }))[0];
+
+        h.Remote.AdvanceClock(3600);
+        await h.Remote.DeleteAsync(victim.Id, null);
+        await h.Sync.SyncAsync();
+        Assert.Null(await h.Local.GetAsync(victim.Id));
+        Assert.Equal(4, (await h.Local.GetSyncStateAsync()).LocalCount);
+
+        h.Remote.AdvanceClock(3600);
+        var again = victim.Clone(); again.RemoteUpdateTime = null;
+        await h.Remote.CreateAsync(again);
+        await h.Sync.SyncAsync();
+        Assert.NotNull(await h.Local.GetAsync(victim.Id));
+    }
+
+    [Fact]
+    public async Task SeededCache_IsReplacedByAFullDownloadOnTheFirstRealSync()
+    {
+        var h = new Harness();
+        await h.Local.ReplaceAllAsync(new[] { TestKit.Word("local", "lok", "Outros", 0) }, 0);   // carga inicial embutida
+        h.Remote.Seed(new[] { TestKit.Word("sol", "sul", "Substantivo", 0) });
+        await h.Sync.SyncAsync();
+        Assert.Equal(1, h.Remote.FullListCalls);
+        var all = await h.Local.SearchAsync(new DictionaryQuery { IncludeInflectedForms = true });
+        Assert.Equal(new[] { "sol" }, all.Select(e => e.Portuguese).ToArray());
+    }
+
+    [Fact]
+    public async Task AFullDownloadIsRepeatedEveryWeek_AsASafetyNet()
+    {
+        var h = new Harness();
+        var clock = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
+        var sync = new SyncService(h.Local, h.Remote, h.Net, () => clock);
+        h.Remote.Seed(Many(3));
+        await sync.SyncAsync();
+        Assert.Equal(1, h.Remote.FullListCalls);
+
+        h.Remote.AdvanceClock(60);
+        h.Remote.Seed(Many(1).Select(e => { e.Id = "novo"; return e; }));
+        await sync.SyncAsync();
+        Assert.Equal(1, h.Remote.FullListCalls);                      // ainda incremental
+
+        h.Local.SetLastFullSync(clock.AddDays(-8));                    // a última carga completa ficou velha
+        h.Remote.AdvanceClock(60);
+        h.Remote.Seed(Many(1).Select(e => { e.Id = "novo2"; return e; }));
+        await sync.SyncAsync();
+        Assert.Equal(2, h.Remote.FullListCalls);
+    }
+
+    [Fact]
+    public async Task ExhaustedFreeQuota_IsReportedClearly_AndTheCacheIsKept()
+    {
+        var local = new InMemoryDictionaryRepository();
+        await local.ReplaceAllAsync(new[] { TestKit.Word("sol", "sul", "Substantivo", 0) }, 3);
+        var r = await new SyncService(local, new QuotaRemote(), new FakeConnectivity()).SyncAsync();
+        Assert.Equal(SyncOutcome.Failed, r.Outcome);
+        Assert.Contains("cota diária", r.Message);
+        Assert.Equal(1, (await local.GetSyncStateAsync()).LocalCount);
+    }
+}

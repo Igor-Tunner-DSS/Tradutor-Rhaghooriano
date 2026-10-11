@@ -49,11 +49,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISettingsStore, SqliteSettingsStore>();
         services.AddSingleton<IImportIssueRepository, SqliteImportIssueRepository>();
 
-        // Firebase e IA
+        // Firebase (plano Spark: somente Authentication + Firestore)
         services.AddSingleton<FirebaseAuthService>();
         services.AddSingleton<IAuthService>(sp => sp.GetRequiredService<FirebaseAuthService>());
         services.AddSingleton<IRemoteDictionaryStore, FirestoreDictionaryStore>();
-        services.AddSingleton<IAiClient, BackendAiClient>();
+
+        // IA: OpenRouter direto, com a chave pessoal de cada usuário (protegida por DPAPI) e limite diário local
+        services.AddSingleton<IAiKeyStore, SecureAiKeyStore>();
+        services.AddSingleton<IAiUsageLimiter>(sp => new SettingsAiUsageLimiter(sp.GetRequiredService<ISettingsStore>(), config.Ai.DailyLimit));
+        services.AddSingleton<IAiKeyManager, OpenRouterKeyManager>();
+        services.AddSingleton<IAiClient, OpenRouterAiClient>();
         return services;
     }
 }

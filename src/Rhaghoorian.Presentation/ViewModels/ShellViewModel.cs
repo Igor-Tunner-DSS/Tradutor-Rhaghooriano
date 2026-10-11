@@ -22,6 +22,7 @@ public sealed class ShellViewModel : ObservableObject
         ToggleThemeCommand = AsyncCommand.Create(() => _theme.ToggleAsync(), errors);
         SyncNowCommand = AsyncCommand.Create(async () => { await _startup.SyncNowAsync(); }, errors);
         AuthCommand = AsyncCommand.Create(AuthAsync, errors);
+        OpenAiSettingsCommand = AsyncCommand.Create(() => _nav.GoToAsync(Routes.AiSettings), errors);
 
         _auth.AuthStateChanged += (_, _) => _ui.Post(RaiseAuth);
         _theme.Changed += (_, _) => _ui.Post(() => OnPropertyChanged(nameof(ThemeButtonText)));
@@ -31,6 +32,7 @@ public sealed class ShellViewModel : ObservableObject
     public AsyncCommand ToggleThemeCommand { get; }
     public AsyncCommand SyncNowCommand { get; }
     public AsyncCommand AuthCommand { get; }
+    public AsyncCommand OpenAiSettingsCommand { get; }
 
     public bool IsAuthenticated => _auth.IsAuthenticated;
     public string AuthButtonText => IsAuthenticated ? "Sair" : "Entrar";

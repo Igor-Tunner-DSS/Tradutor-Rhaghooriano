@@ -1,7 +1,0 @@
-node_modules/
-lib/
-lib-test/
-.env
-.env.*
-.secret.local
-*.log

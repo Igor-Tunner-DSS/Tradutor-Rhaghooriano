@@ -4,6 +4,12 @@ namespace Rhaghoorian.Core.Abstractions;
 
 public sealed record SuggestionCandidate(string Key, string Display, string EntryId, string Meaning);
 
+/// <summary>
+/// Alterações remotas desde um ponto. <paramref name="IsFull"/> = foto completa (substitui o cache); caso contrário, apenas o delta
+/// (inclusões/alterações e exclusões). O custo em leituras do Firestore é proporcional ao delta, não ao tamanho do dicionário.
+/// </summary>
+public sealed record RemoteChanges(bool IsFull, IReadOnlyList<WordEntry> Upserts, IReadOnlyList<string> DeletedIds, DateTimeOffset? Cursor);
+
 /// <summary>Consultas mínimas ao dicionário necessárias ao tradutor (implementadas por SQLite e por memória).</summary>
 public interface IDictionaryLookup
 {
@@ -23,7 +29,10 @@ public interface IDictionaryRepository : IDictionaryLookup
     Task<WordEntry?> GetAsync(string id, CancellationToken ct = default);
     Task UpsertAsync(WordEntry entry, CancellationToken ct = default);
     Task DeleteAsync(string id, CancellationToken ct = default);
+    /// <summary>Carga inicial local (revisão informada, sem cursor): a primeira sincronização real fará uma carga completa.</summary>
     Task ReplaceAllAsync(IReadOnlyCollection<WordEntry> entries, long remoteRevision, CancellationToken ct = default);
+    /// <summary>Aplica uma foto completa (substitui tudo) ou um delta (exclusões primeiro, depois inclusões) e grava revisão + cursor.</summary>
+    Task ApplyChangesAsync(RemoteChanges changes, long remoteRevision, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetPartsOfSpeechAsync(CancellationToken ct = default);
     Task<SyncState> GetSyncStateAsync(CancellationToken ct = default);
     Task<int> GetMaxSortOrderAsync(CancellationToken ct = default);
@@ -59,7 +68,10 @@ public interface IRemoteDictionaryStore
 {
     /// <summary>Contador de revisão do dicionário; nulo se ainda não inicializado no servidor.</summary>
     Task<long?> GetRevisionAsync(CancellationToken ct = default);
-    Task<IReadOnlyList<WordEntry>> ListAllAsync(CancellationToken ct = default);
+    /// <summary>
+    /// <paramref name="since"/> nulo = tudo. Com valor, devolve só o que mudou desde então (carimbo de servidor), mais as exclusões.
+    /// </summary>
+    Task<RemoteChanges> ListChangesAsync(DateTimeOffset? since, CancellationToken ct = default);
     Task<WordEntry?> GetAsync(string id, CancellationToken ct = default);
     /// <summary>Cria o documento (falha com ConflictException se já existir). Devolve o registro com RemoteUpdateTime.</summary>
     Task<WordEntry> CreateAsync(WordEntry entry, CancellationToken ct = default);

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Rhaghoorian.App.Views.AiSettingsPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             Title="Configurações de IA">
+    <ScrollView>
+        <VerticalStackLayout Padding="28,20" Spacing="16" MaximumWidthRequest="860" HorizontalOptions="Fill">
+
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Configurações de IA" StyleClass="Heading" />
+                <Label Text="A IA é opcional e usa a sua própria chave do OpenRouter." StyleClass="Muted" />
+            </VerticalStackLayout>
+
+            <!-- Situação atual -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="{Binding StatusText}" StyleClass="Accent" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding UsageText}" StyleClass="Muted" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Como obter a chave -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Como obter a chave" StyleClass="Accent" />
+                    <Label Text="{Binding HelpText}" LineBreakMode="WordWrap" />
+                    <Button Text="Abrir openrouter.ai/keys" Command="{Binding OpenKeysPageCommand}" StyleClass="Ghost" HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Colar e salvar -->
+            <Border StyleClass="Card">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Sua chave" StyleClass="Accent" />
+                    <Border StyleClass="Input">
+                        <Entry Text="{Binding ApiKeyInput}" Placeholder="sk-or-v1-…" IsPassword="True"
+                               ReturnType="Done" ReturnCommand="{Binding SaveCommand}" />
+                    </Border>
+                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                        <Button Text="Testar e salvar" Command="{Binding SaveCommand}" Margin="0,0,10,8" />
+                        <Button Text="Remover chave" Command="{Binding RemoveCommand}" IsVisible="{Binding HasKey}" StyleClass="Danger" Margin="0,0,10,8" />
+                        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" WidthRequest="22" HeightRequest="22" Margin="0,0,10,8" />
+                    </FlexLayout>
+                    <Label Text="{Binding FeedbackMessage}" IsVisible="{Binding FeedbackIsError}" StyleClass="Error" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding FeedbackMessage}" IsVisible="{Binding FeedbackIsSuccess}" StyleClass="Success" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="{Binding LimitsText}" StyleClass="Muted" LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

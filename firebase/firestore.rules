@@ -1,9 +1,9 @@
 rules_version = '2';
 
+// Plano gratuito (Spark): estas regras NÃO usam get()/exists()/getAfter() — cada uma contaria como leitura extra na cota diária.
 // Segurança no servidor: o app MAUI nunca é a barreira de autorização.
 // - Qualquer pessoa lê o dicionário (visitantes usam Tradutor/Dicionário).
 // - Somente usuários autenticados (todos administradores) criam, alteram e excluem.
-// - Contadores de limite da IA (rateLimits) são acessíveis apenas pelo backend (Admin SDK ignora estas regras).
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -19,7 +19,7 @@ service cloud.firestore {
       return v is string && v.size() > 0 && v.size() <= maxLen;
     }
 
-    // Formato mínimo de um registro do dicionário.
+    // Formato mínimo de um registro. syncStamp é o carimbo de servidor (REQUEST_TIME) que alimenta a sincronização incremental.
     function validWord(d) {
       return nonEmptyString(d.rhagho, 200)
         && nonEmptyString(d.portuguese, 400)
@@ -28,6 +28,7 @@ service cloud.firestore {
         && d.sortOrder is int
         && d.createdAt is timestamp
         && d.updatedAt is timestamp
+        && d.syncStamp == request.time
         && d.alternativeForms is list && d.alternativeForms.size() <= 50
         && d.synonyms is list && d.synonyms.size() <= 100
         && d.abbreviations is list && d.abbreviations.size() <= 50
@@ -51,6 +52,15 @@ service cloud.firestore {
       allow delete: if signedIn();
     }
 
+    // Marcador deixado ao excluir uma palavra: leva a exclusão aos outros computadores sem reler o dicionário inteiro.
+    match /deletions/{wordId} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.resource.data.keys().hasOnly(['syncStamp'])
+        && request.resource.data.syncStamp == request.time;
+      allow delete: if false;
+    }
+
     // Contador de revisão usado para sincronizar com uma única leitura.
     match /meta/{docId} {
       allow read: if true;
@@ -64,10 +74,6 @@ service cloud.firestore {
         && request.resource.data.revision == resource.data.revision + 1;
 
       allow delete: if false;
-    }
-
-    match /rateLimits/{docId} {
-      allow read, write: if false;
     }
 
     match /{document=**} {

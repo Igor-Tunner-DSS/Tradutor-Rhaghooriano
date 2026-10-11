@@ -1,5 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": { "outDir": "lib-test", "rootDir": "." , "noUnusedLocals": false },
-  "include": ["src", "test"]
-}

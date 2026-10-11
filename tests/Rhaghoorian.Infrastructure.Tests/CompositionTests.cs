@@ -55,7 +55,7 @@ public class CompositionTests
     private static (IServiceProvider sp, TempDb tmp) Build(string? dbPath = null)
     {
         var tmp = new TempDb();
-        var config = AppConfiguration.Build("{ \"Firebase\": { \"ProjectId\": \"demo\", \"ApiKey\": \"k\" }, \"Ai\": { \"Endpoint\": \"https://x.test/ai\" } }");
+        var config = AppConfiguration.Build("{ \"Firebase\": { \"ProjectId\": \"demo\", \"ApiKey\": \"k\" } }");
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddRhaghoInfrastructure(config, dbPath ?? tmp.FilePath);

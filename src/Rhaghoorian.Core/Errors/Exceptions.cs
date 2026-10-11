@@ -36,6 +36,11 @@ public sealed class RemoteStoreException : AppException
     public RemoteStoreException(string message = "O banco de dados online está indisponível no momento.", Exception? inner = null) : base(message, inner) { }
 }
 
+public sealed class RemoteQuotaExceededException : AppException
+{
+    public RemoteQuotaExceededException(string message = "A cota diária gratuita do Firebase foi atingida. Consulta e tradução continuam funcionando offline; tente de novo amanhã.", Exception? inner = null) : base(message, inner) { }
+}
+
 public sealed class ConflictException : AppException
 {
     public ConflictException(string message = "Este registro foi alterado por outra pessoa. Recarregue-o antes de salvar novamente.", Exception? inner = null) : base(message, inner) { }
@@ -49,6 +54,16 @@ public sealed class LocalDatabaseException : AppException
 public sealed class AiUnavailableException : AppException
 {
     public AiUnavailableException(string message = "O recurso de IA está indisponível agora. A tradução local continua funcionando.", Exception? inner = null) : base(message, inner) { }
+}
+
+public sealed class AiKeyMissingException : AppException
+{
+    public AiKeyMissingException(string message = "Configure sua chave do OpenRouter em Configurações de IA para usar este recurso.") : base(message) { }
+}
+
+public sealed class AiKeyInvalidException : AppException
+{
+    public AiKeyInvalidException(string message = "A chave do OpenRouter foi recusada. Confira se copiou a chave inteira e se ela não foi revogada.") : base(message) { }
 }
 
 public sealed class AiRateLimitException : AppException

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Rhaghoorian.Core.Abstractions;
+using Rhaghoorian.Core.Ai;
 using Rhaghoorian.Core.Errors;
 using Rhaghoorian.Core.Linguistics;
 using Rhaghoorian.Core.Models;
@@ -218,7 +219,13 @@ public sealed class WordEditViewModel : ObservableObject
 
     private async Task CheckConjugationAsync()
     {
-        var check = await _ai.CheckConjugationAsync(Portuguese, Rhagho);
+        VerbAiCheck check;
+        try { check = await _ai.CheckConjugationAsync(Portuguese, Rhagho); }
+        catch (Exception ex) when (ex is AiKeyMissingException or AiKeyInvalidException)
+        {
+            await AiKeyPrompt.TryHandleAsync(ex, _dialogs, _nav);
+            return;
+        }
         ConjugationCheckText = check.AiAgrees
             ? "A IA concorda com as regras oficiais."
             : "A IA divergiu das regras oficiais. As formas oficiais acima prevalecem e serão usadas.";
@@ -228,7 +235,13 @@ public sealed class WordEditViewModel : ObservableObject
 
     private async Task SuggestSynonymsAsync()
     {
-        var suggestions = await _ai.SuggestSynonymsAsync(BuildEntry());
+        IReadOnlyList<string> suggestions;
+        try { suggestions = await _ai.SuggestSynonymsAsync(BuildEntry()); }
+        catch (Exception ex) when (ex is AiKeyMissingException or AiKeyInvalidException)
+        {
+            await AiKeyPrompt.TryHandleAsync(ex, _dialogs, _nav);
+            return;
+        }
         AiSuggestions.Clear();
         foreach (var s in suggestions)
         {

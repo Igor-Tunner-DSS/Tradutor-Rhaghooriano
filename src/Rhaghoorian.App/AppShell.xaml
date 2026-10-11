@@ -6,17 +6,18 @@
        Shell.FlyoutBehavior="Disabled"
        Title="Rhagho'oriano">
 
-    <!-- Barra de título: marca, estado da sincronização, tema, sincronizar e sessão. BindingContext = ShellViewModel. -->
+    <!-- Barra de título: marca, estado da sincronização, IA, sincronizar, tema e sessão. BindingContext = ShellViewModel. -->
     <Shell.TitleView>
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10" Padding="8,0">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" Padding="8,0">
             <HorizontalStackLayout Spacing="14" VerticalOptions="Center">
                 <Label Text="Rhagho'oriano" StyleClass="Brand" VerticalOptions="Center" />
                 <Label Text="{Binding StatusText}" StyleClass="Muted" VerticalOptions="Center" />
             </HorizontalStackLayout>
             <Label Grid.Column="1" Text="{Binding UserLabel}" StyleClass="Muted" VerticalOptions="Center" />
-            <Button Grid.Column="2" Text="Sincronizar" Command="{Binding SyncNowCommand}" StyleClass="Ghost" />
-            <Button Grid.Column="3" Text="{Binding ThemeButtonText}" Command="{Binding ToggleThemeCommand}" StyleClass="Ghost" />
-            <Button Grid.Column="4" Text="{Binding AuthButtonText}" Command="{Binding AuthCommand}" />
+            <Button Grid.Column="2" Text="IA" Command="{Binding OpenAiSettingsCommand}" StyleClass="Ghost" />
+            <Button Grid.Column="3" Text="Sincronizar" Command="{Binding SyncNowCommand}" StyleClass="Ghost" />
+            <Button Grid.Column="4" Text="{Binding ThemeButtonText}" Command="{Binding ToggleThemeCommand}" StyleClass="Ghost" />
+            <Button Grid.Column="5" Text="{Binding AuthButtonText}" Command="{Binding AuthCommand}" />
         </Grid>
     </Shell.TitleView>
 

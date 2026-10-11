@@ -17,7 +17,7 @@ beforeEach(async () => env.clearFirestore());
 
 const word = (uid, over = {}) => ({
   rhagho: "kaza", portuguese: "casa", partOfSpeech: "Substantivo", version: 1, sortOrder: 1,
-  createdAt: Timestamp.now(), updatedAt: Timestamp.now(), createdBy: uid, updatedBy: uid,
+  createdAt: Timestamp.now(), updatedAt: Timestamp.now(), syncStamp: serverTimestamp(), createdBy: uid, updatedBy: uid,
   alternativeForms: [], synonyms: [], abbreviations: [], ...over,
 });
 
@@ -31,15 +31,19 @@ describe("dictionary", () => {
   it("usuário autenticado cria, altera e exclui", async () => {
     const db = env.authenticatedContext("u1").firestore();
     await assertSucceeds(setDoc(doc(db, "dictionary/a"), word("u1")));
-    await assertSucceeds(updateDoc(doc(db, "dictionary/a"), { example: "ok", updatedBy: "u1", version: 2 }));
+    await assertSucceeds(updateDoc(doc(db, "dictionary/a"), { example: "ok", updatedBy: "u1", version: 2, syncStamp: serverTimestamp() }));
     await assertSucceeds(deleteDoc(doc(db, "dictionary/a")));
   });
   it("outro usuário pode editar, mas não forjar autoria nem trocar o criador", async () => {
     await env.withSecurityRulesDisabled(async (c) => setDoc(doc(c.firestore(), "dictionary/a"), word("u1")));
     const u2 = env.authenticatedContext("u2").firestore();
-    await assertSucceeds(updateDoc(doc(u2, "dictionary/a"), { updatedBy: "u2" }));
-    await assertFails(updateDoc(doc(u2, "dictionary/a"), { updatedBy: "u1" }));
-    await assertFails(updateDoc(doc(u2, "dictionary/a"), { createdBy: "u2", updatedBy: "u2" }));
+    await assertSucceeds(updateDoc(doc(u2, "dictionary/a"), { updatedBy: "u2", syncStamp: serverTimestamp() }));
+    await assertFails(updateDoc(doc(u2, "dictionary/a"), { updatedBy: "u1", syncStamp: serverTimestamp() }));
+    await assertFails(updateDoc(doc(u2, "dictionary/a"), { createdBy: "u2", updatedBy: "u2", syncStamp: serverTimestamp() }));
+  });
+  it("exige o carimbo de servidor (syncStamp) em toda escrita", async () => {
+    const db = env.authenticatedContext("u1").firestore();
+    await assertFails(setDoc(doc(db, "dictionary/a"), word("u1", { syncStamp: Timestamp.fromMillis(1000) })));
   });
   it("rejeita registro inválido", async () => {
     const db = env.authenticatedContext("u1").firestore();
@@ -48,7 +52,19 @@ describe("dictionary", () => {
   });
 });
 
-describe("meta e rateLimits", () => {
+describe("deletions", () => {
+  it("leitura pública; criação só autenticada, só com o carimbo; nunca apagar", async () => {
+    const guest = env.unauthenticatedContext().firestore();
+    const db = env.authenticatedContext("u1").firestore();
+    await assertSucceeds(getDoc(doc(guest, "deletions/a")));
+    await assertFails(setDoc(doc(guest, "deletions/a"), { syncStamp: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(db, "deletions/a"), { syncStamp: serverTimestamp() }));
+    await assertFails(setDoc(doc(db, "deletions/b"), { syncStamp: serverTimestamp(), extra: 1 }));
+    await assertFails(deleteDoc(doc(db, "deletions/a")));
+  });
+});
+
+describe("meta e coleções desconhecidas", () => {
   it("meta: leitura pública, escrita só autenticada e só incrementando", async () => {
     const guest = env.unauthenticatedContext().firestore();
     const db = env.authenticatedContext("u1").firestore();
@@ -58,10 +74,9 @@ describe("meta e rateLimits", () => {
     await assertFails(setDoc(doc(db, "meta/dictionary"), { revision: 5 }));
     await assertSucceeds(setDoc(doc(db, "meta/dictionary"), { revision: 2 }));
   });
-  it("rateLimits e coleções desconhecidas são inacessíveis ao cliente", async () => {
+  it("coleções desconhecidas são inacessíveis ao cliente", async () => {
     const db = env.authenticatedContext("u1").firestore();
-    await assertFails(getDoc(doc(db, "rateLimits/x")));
-    await assertFails(setDoc(doc(db, "rateLimits/x"), { count: 0 }));
+    await assertFails(getDoc(doc(db, "outra/x")));
     await assertFails(setDoc(doc(db, "outra/x"), { a: 1 }));
   });
 });

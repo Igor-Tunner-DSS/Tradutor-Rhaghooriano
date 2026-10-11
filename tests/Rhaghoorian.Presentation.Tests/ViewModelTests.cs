@@ -592,3 +592,123 @@ public class ShellLoginStartupImportTests
         Assert.Equal("Conflito de edição", fx.Dialogs.Alerts.Last().Title);
     }
 }
+
+
+public class AiSettingsViewModelTests
+{
+    private const string Key = "sk-or-v1-0123456789abcdef0123456789abcdef";
+
+    private static (AiSettingsViewModel vm, FakeKeyStore store, FakeKeyManager mgr, FakeLauncher launcher, Fx fx) Build()
+    {
+        var fx = new Fx();
+        var store = new FakeKeyStore();
+        var mgr = new FakeKeyManager(store);
+        var launcher = new FakeLauncher();
+        var usage = new Rhaghoorian.Core.Ai.SettingsAiUsageLimiter(new FakeSettings(), 20);
+        return (new AiSettingsViewModel(mgr, usage, launcher, fx.Dialogs, fx.Errors), store, mgr, launcher, fx);
+    }
+
+    [Fact]
+    public async Task WithoutKey_ShowsThatAiIsOff_AndUsage()
+    {
+        var (vm, _, _, _, _) = Build();
+        await vm.OnAppearingAsync();
+        Assert.False(vm.HasKey);
+        Assert.Contains("Nenhuma chave", vm.StatusText);
+        Assert.Contains("0 de 20", vm.UsageText);
+        Assert.Contains("openrouter.ai/keys", vm.HelpText);
+        Assert.Contains("50 por dia", vm.LimitsText);
+    }
+
+    [Fact]
+    public async Task Save_StoresTheKey_ClearsTheInput_AndShowsOnlyAMaskedKey()
+    {
+        var (vm, store, mgr, _, _) = Build();
+        mgr.FreeTier = true;
+        vm.ApiKeyInput = Key;
+        await vm.SaveCommand.ExecuteAsync();
+
+        Assert.Equal(Key, store.Key);
+        Assert.Equal("", vm.ApiKeyInput);
+        Assert.True(vm.HasKey);
+        Assert.Equal("Chave configurada: sk-or-…cdef", vm.StatusText);
+        Assert.DoesNotContain("0123456789", vm.StatusText + vm.FeedbackMessage + vm.UsageText);
+        Assert.True(vm.FeedbackIsSuccess);
+        Assert.Contains("confirmada", vm.FeedbackMessage);
+        Assert.Contains("50 por dia", vm.FeedbackMessage);
+    }
+
+    [Fact]
+    public async Task BadKeys_AreExplainedInlineWithoutPopups_AndNothingIsSaved()
+    {
+        var (vm, store, mgr, _, fx) = Build();
+        vm.ApiKeyInput = "AIzaSyFirebaseKey-0123456789abcdef";
+        await vm.SaveCommand.ExecuteAsync();
+        Assert.True(vm.FeedbackIsError);
+        Assert.Contains("sk-or-", vm.FeedbackMessage);
+
+        vm.ApiKeyInput = Key;
+        mgr.RemoteFailure = new AiKeyInvalidException();
+        await vm.SaveCommand.ExecuteAsync();
+        Assert.True(vm.FeedbackIsError);
+        Assert.Contains("recusada", vm.FeedbackMessage);
+        Assert.Null(store.Key);
+        Assert.Empty(fx.Dialogs.Alerts);
+    }
+
+    [Fact]
+    public async Task Unverified_Remove_AndOpenKeysPage()
+    {
+        var (vm, store, mgr, launcher, fx) = Build();
+        mgr.Verified = false;
+        vm.ApiKeyInput = Key;
+        await vm.SaveCommand.ExecuteAsync();
+        Assert.Contains("não foi possível confirmá-la", vm.FeedbackMessage);
+
+        await vm.RemoveCommand.ExecuteAsync();
+        Assert.Contains("Remover chave", fx.Dialogs.Confirms);
+        Assert.Null(store.Key);
+        Assert.False(vm.HasKey);
+
+        await vm.OpenKeysPageCommand.ExecuteAsync();
+        Assert.Equal("https://openrouter.ai/keys", launcher.Opened.Single());
+    }
+
+    [Fact]
+    public async Task RefineWithAi_WithoutAKey_OffersTheSettingsScreen()
+    {
+        var fx = new Fx();
+        var throwing = new ThrowingAi(new AiKeyMissingException());
+        var wf = new Rhaghoorian.Core.Services.TranslationWorkflow(
+            new Rhaghoorian.Core.Translation.TranslationService(fx.Local, TestKit.Ling, new Rhaghoorian.Core.Translation.SuggestionService(fx.Local, TestKit.Ling)),
+            fx.History, throwing, new Rhaghoorian.Core.Ai.AiContextBuilder(fx.Local, TestKit.Ling), fx.Local, TestKit.Ling, fx.Net);
+        var vm = new TranslatorViewModel(wf, fx.Startup, fx.Clipboard, fx.Nav, fx.Auth, fx.Dialogs, fx.Hub, fx.Errors);
+        vm.Direction = TranslationDirection.RhaghoToPortuguese;
+        vm.InputText = "nuruh zzzx";
+        await vm.TranslateCommand.ExecuteAsync();
+        Assert.True(vm.CanRefineWithAi);
+
+        await vm.RefineWithAiCommand.ExecuteAsync();
+        Assert.Contains("Chave de IA", fx.Dialogs.Confirms);
+        Assert.Equal(Routes.AiSettings, fx.Nav.Visits.Single().Route);
+        Assert.Empty(fx.Dialogs.Alerts);
+    }
+
+    [Fact]
+    public async Task ShellButton_OpensTheSettings()
+    {
+        var fx = new Fx();
+        var shell = new ShellViewModel(fx.Auth, fx.Theme, fx.Startup, fx.Nav, fx.Dialogs, fx.Ui, fx.Errors);
+        await shell.OpenAiSettingsCommand.ExecuteAsync();
+        Assert.Equal(Routes.AiSettings, fx.Nav.Visits.Single().Route);
+    }
+
+    private sealed class ThrowingAi : Rhaghoorian.Core.Ai.IAiClient
+    {
+        private readonly Exception _ex;
+        public ThrowingAi(Exception ex) => _ex = ex;
+        public Task<string> TranslateAsync(Rhaghoorian.Core.Ai.AiTranslationRequest request, CancellationToken ct = default) => throw _ex;
+        public Task<VerbConjugation> ConjugateAsync(Rhaghoorian.Core.Ai.AiConjugationRequest request, CancellationToken ct = default) => throw _ex;
+        public Task<IReadOnlyList<string>> SuggestSynonymsAsync(Rhaghoorian.Core.Ai.AiSynonymRequest request, CancellationToken ct = default) => throw _ex;
+    }
+}

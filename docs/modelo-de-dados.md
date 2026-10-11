@@ -23,12 +23,23 @@ Novos verbos: o usuário informa infinitivo + forma base; as quatro formas (`bas
 ## Firestore
 
 ```
-dictionary/{id}      → campos acima (tipos Firestore: stringValue, integerValue, timestampValue, arrayValue/mapValue…)
-meta/dictionary      → { revision: int }   (incrementado atomicamente em todo commit de escrita)
-rateLimits/{dia}_{hash} → { count, day, updatedAt, expiresAt }   (somente Admin SDK; TTL em expiresAt)
+dictionary/{id}   → campos acima + syncStamp (timestamp de servidor, REQUEST_TIME)
+deletions/{id}    → { syncStamp }   marcador deixado ao excluir (no mesmo commit atômico)
+meta/dictionary   → { revision: int }   incrementado atomicamente em todo commit de escrita
 ```
 
-Regras (`firebase/firestore.rules`): leitura pública de `dictionary` e `meta`; escrita só com `request.auth != null`, com validação de formato, autoria (`createdBy` imutável, `updatedBy` = uid) e `meta.revision` só pode subir de 1 em 1; `rateLimits` e qualquer outra coleção: negado.
+Regras (`firebase/firestore.rules`): leitura pública; escrita só com `request.auth != null`, com validação de formato, `syncStamp == request.time`, autoria (`createdBy` imutável, `updatedBy` = uid), `deletions` só aceita `{syncStamp}` e nunca é apagada, `meta.revision` só sobe de 1 em 1; qualquer outra coleção: negado. Não há `get()`/`exists()` (contariam leituras).
+
+### Sincronização incremental (por quê e como)
+
+O plano Spark dá 50.000 leituras/dia; baixar o dicionário inteiro a cada mudança escalaria mal. Fluxo (`SyncService`):
+
+1. Lê `meta/dictionary` (1 leitura). `revision` igual à local → fim.
+2. Cache vazio, sem cursor ou última carga completa com mais de 7 dias → **carga completa** (N leituras) e grava o cursor.
+3. Senão → duas consultas (`runQuery`) com `syncStamp > cursor − 15 s`: uma em `dictionary` (inclusões/alterações) e outra em `deletions` (exclusões). Aplica exclusões primeiro, depois inclusões; o cursor só avança.
+4. A margem de 15 s evita perder commits concorrentes; reaplicar um documento é idempotente.
+
+Custo: proporcional ao que mudou, não ao tamanho do dicionário. Exclusão de uma palavra recriada depois funciona (a inclusão vence na mesma leva).
 
 ## SQLite local (`rhagho.db`, em `%LOCALAPPDATA%`)
 
@@ -38,8 +49,8 @@ Regras (`firebase/firestore.rules`): leitura pública de `dictionary` e `meta`; 
 | `rh_keys` | Índice `(key, word_id, words)`: grafia + formas alternativas normalizadas. |
 | `alternative_forms`, `synonyms`, `abbreviations` | Filhas de `words` (cascata). |
 | `translation_history` | Texto original, direção, resultado, data/hora. **Nunca vai ao Firestore**; máx. 1000 itens. |
-| `settings` | Preferências locais (tema). |
-| `sync_state` | Última `revision` baixada e data da sincronização. |
+| `settings` | Preferências locais (tema) e uso diário da IA (`ai.usage` = `AAAAMMDD:contagem`). |
+| `sync_state` | Última `revision`, data da sincronização, **cursor** (maior `syncStamp` aplicado) e data da última carga completa. |
 | `import_issues` | Relatório de validação da importação, para revisão posterior. |
 
 Normalização (`TextNormalizer`): minúsculas, sem diacríticos, `’‘ʼ´` → `'`, aspas curvas → `"`, espaços colapsados. É só chave de comparação; o texto original nunca é alterado. A contagem de letras ignora acentos, apóstrofos e espaços.
@@ -49,7 +60,8 @@ Esquema versionado por `PRAGMA user_version`; arquivo corrompido é movido para 
 ## Decisões de arquitetura
 
 - **REST em vez de SDK** (ver README). Leituras sem token (regras públicas); escritas com ID token do Firebase Auth.
-- **`revision`** permite sincronizar com 1 leitura quando nada mudou, em vez de baixar ~870 documentos.
+- **Sem backend**: Cloud Functions exigem o plano Blaze. A IA é chamada direto do app com a chave pessoal (DPAPI); prompts e sanitização vivem em `Core/Ai`.
+- **`revision` + cursor incremental** permitem sincronizar com 1 leitura quando nada mudou e só com o delta quando mudou (cota gratuita do Spark).
 - **Escrita remota primeiro, cache depois**: se o Firestore recusar/falhar, o cache não muda e o usuário vê o erro.
 - **Regras linguísticas em um serviço** (`IRhaghoLinguisticService`), nunca em ViewModel/XAML; IA só como auxiliar validado.
 - **Presentation sem MAUI**: permite testar toda a lógica de tela fora do Windows.

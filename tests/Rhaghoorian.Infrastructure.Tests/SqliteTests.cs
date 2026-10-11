@@ -1,10 +1,94 @@
+using Rhaghoorian.Core.Abstractions;
 using Rhaghoorian.Core.Errors;
+using Rhaghoorian.Core.Tests.Support;
 using Rhaghoorian.Core.Models;
 using Rhaghoorian.Core.Translation;
 using Rhaghoorian.Infrastructure.SQLite;
 using Xunit;
 
 namespace Rhaghoorian.Infrastructure.Tests;
+
+public class SqliteIncrementalSyncTests
+{
+    private static WordEntry W(string id, string pt, string rh, int order) =>
+        new() { Id = id, Portuguese = pt, Rhagho = rh, PartOfSpeech = "Substantivo", SortOrder = order };
+
+    [Fact]
+    public async Task FullSnapshot_ReplacesEverything_AndRecordsCursorAndFullSyncDate()
+    {
+        using var tmp = new TempDb();
+        var repo = new SqliteDictionaryRepository(tmp.Open(), Data.Ling);
+        await repo.ReplaceAllAsync(new[] { W("old", "velho", "vel", 0) }, 0);             // carga inicial embutida
+        var st0 = await repo.GetSyncStateAsync();
+        Assert.Null(st0.Cursor);
+        Assert.Null(st0.LastFullSyncAt);
+
+        var cursor = new DateTimeOffset(2026, 10, 5, 10, 0, 0, TimeSpan.Zero);
+        await repo.ApplyChangesAsync(new RemoteChanges(true, new[] { W("a", "casa", "kaz", 1), W("b", "sol", "sul", 2) }, Array.Empty<string>(), cursor), 5);
+        Assert.Null(await repo.GetAsync("old"));
+        var st = await repo.GetSyncStateAsync();
+        Assert.Equal((5L, 2, cursor), (st.Revision!.Value, st.LocalCount, st.Cursor!.Value));
+        Assert.NotNull(st.LastFullSyncAt);
+    }
+
+    [Fact]
+    public async Task Delta_AppliesDeletionsFirstThenUpserts_AndTheCursorOnlyMovesForward()
+    {
+        using var tmp = new TempDb();
+        var repo = new SqliteDictionaryRepository(tmp.Open(), Data.Ling);
+        var c1 = new DateTimeOffset(2026, 10, 5, 10, 0, 0, TimeSpan.Zero);
+        await repo.ApplyChangesAsync(new RemoteChanges(true, new[] { W("a", "casa", "kaz", 1), W("b", "sol", "sul", 2), W("c", "lua", "lun", 3) }, Array.Empty<string>(), c1), 1);
+        var fullAt = (await repo.GetSyncStateAsync()).LastFullSyncAt;
+
+        var edited = W("a", "casa", "kaza", 1); edited.Etymology = "nova";
+        var c2 = c1.AddMinutes(5);
+        // "b" foi apagada; "c" foi apagada e recriada (aparece nos dois conjuntos: a inclusão vence)
+        await repo.ApplyChangesAsync(new RemoteChanges(false, new[] { edited, W("c", "lua", "luna", 3), W("d", "mar", "mar", 4) }, new[] { "b", "c" }, c2), 2);
+
+        Assert.Null(await repo.GetAsync("b"));
+        Assert.Equal("luna", (await repo.GetAsync("c"))!.Rhagho);
+        Assert.Equal("nova", (await repo.GetAsync("a"))!.Etymology);
+        Assert.NotNull(await repo.GetAsync("d"));
+        var st = await repo.GetSyncStateAsync();
+        Assert.Equal(3, st.LocalCount);
+        Assert.Equal(c2, st.Cursor);
+        Assert.Equal(2L, st.Revision);
+        Assert.Equal(fullAt, st.LastFullSyncAt);                                      // delta não marca carga completa
+
+        await repo.ApplyChangesAsync(new RemoteChanges(false, Array.Empty<WordEntry>(), Array.Empty<string>(), c1), 3);   // cursor antigo
+        Assert.Equal(c2, (await repo.GetSyncStateAsync()).Cursor);                     // não recua
+        await repo.ApplyChangesAsync(new RemoteChanges(false, Array.Empty<WordEntry>(), Array.Empty<string>(), null), 4);  // delta vazio
+        Assert.Equal(c2, (await repo.GetSyncStateAsync()).Cursor);
+    }
+
+    [Fact]
+    public async Task EndToEnd_SyncServiceOverRealSqlite_ReadsOnlyTheDeltaTheSecondTime()
+    {
+        using var tmp = new TempDb();
+        var repo = new SqliteDictionaryRepository(tmp.Open(), Data.Ling);
+        var remote = new FakeRemoteStore();
+        remote.Seed(Enumerable.Range(0, 200).Select(i => W($"id{i}", $"palavra{i}", $"rh{i}", i)));
+        var sync = new Rhaghoorian.Core.Services.SyncService(repo, remote, new AlwaysOnline());
+
+        await sync.SyncAsync();
+        Assert.Equal(200, (await repo.GetSyncStateAsync()).LocalCount);
+        var reads = remote.DocumentsRead;
+
+        remote.AdvanceClock(3600);
+        var one = (await remote.GetAsync("id7"))!; one.Etymology = "mudou";
+        await remote.UpdateAsync(one);
+        await remote.DeleteAsync("id9", null);
+        await sync.SyncAsync();
+
+        Assert.True(remote.DocumentsRead - reads < 30, $"leu {remote.DocumentsRead - reads} documentos");   // delta + margem de 15 s; nunca os 200
+        Assert.Equal("mudou", (await repo.GetAsync("id7"))!.Etymology);
+        Assert.Null(await repo.GetAsync("id9"));
+        Assert.Equal(199, (await repo.GetSyncStateAsync()).LocalCount);
+        Assert.Equal(SyncOutcome.UpToDate, (await sync.SyncAsync()).Outcome);
+    }
+
+    private sealed class AlwaysOnline : Rhaghoorian.Core.Abstractions.IConnectivityService { public bool IsOnline => true; }
+}
 
 public class SqliteDictionaryTests
 {

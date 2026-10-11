@@ -57,6 +57,10 @@ public static class FirestoreMapper
 
     // ------------------------------------------------------------------ leitura
 
+    /// <summary>Carimbo de servidor (syncStamp) gravado por transform REQUEST_TIME; base do cursor da sincronização incremental.</summary>
+    public static DateTimeOffset? SyncStampOf(JsonElement doc) =>
+        doc.TryGetProperty("fields", out var f) ? GetTimestamp(f, "syncStamp") : null;
+
     public static string IdFromName(string documentName) => documentName[(documentName.LastIndexOf('/') + 1)..];
 
     public static WordEntry FromDocument(JsonElement doc)

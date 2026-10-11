@@ -7,8 +7,6 @@ lib/
 lib-test/
 # Configuração local (pode conter o ID/chave pública do SEU projeto) e segredos do emulador
 config/appsettings.local.json
-backend/functions/.secret.local
-backend/functions/.env*
 *.db
 *.db-journal
 *.corrupt-*
