@@ -87,7 +87,7 @@ if (Test-Path $localPath) {
 $placeholders = @($cfg.Firebase.ProjectId, $cfg.Firebase.ApiKey) | Where-Object { $_ -like 'REPLACE*' }
 if ($placeholders.Count -gt 0 -and -not $cfg.Firebase.UseEmulators) {
     Warn 'Firebase ainda NÃO configurado (valores REPLACE_…). O app abre e funciona offline com o dicionário incluído, mas login, sincronização e escrita ficam indisponíveis.'
-    $pending.Add('Criar o projeto Firebase e preencher config/appsettings.local.json (copie config/appsettings.local.example.json). Veja docs/configuracao.md.')
+    $pending.Add('Criar o projeto Firebase e preencher config/appsettings.local.json (copie config/appsettings.local.example.json).')
 } else { Ok 'Firebase preenchido' }
 
 if ((Get-ChildItem -Recurse -File -Include *.cs,*.xaml,*.json,*.ts -Path src, config, firebase -ErrorAction SilentlyContinue |
